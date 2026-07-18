@@ -1,65 +1,148 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+import { toast } from "sonner";
+import { DownloadIcon, RefreshCcwIcon } from "lucide-react";
+
+import { AppSidebar } from "@/components/app-sidebar";
+import { ChartBar } from "@/components/bar-chart";
+import { DataTable } from "@/components/data-table";
+import { SectionCards } from "@/components/section-cards";
+import { SiteHeader } from "@/components/site-header";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import { FileUploadDropzone } from "@/components/dropzone";
+import { DepartmentData } from "@/lib/cgpa-calculator";
+
+import {
+  processBroadsheetFile,
+  downloadProcessedSheet,
+} from "@/lib/cgpa-calculator";
+
+export default function Page() {
+  // State management for the parsing workflow
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessed, setIsProcessed] = useState(false);
+
+  // Data states retrieved from the Excel parser
+  const [tableData, setTableData] = useState<DepartmentData[]>([]);
+  const [processedWorkbook, setProcessedWorkbook] = useState<any>(null);
+  const [originalFilename, setOriginalFilename] = useState("");
+
+  // The core handler that wires the dropzone to the math engine
+  const handleFileUpload = async (file: File) => {
+    setIsProcessing(true);
+    toast.loading(`Parsing ${file.name}...`, { id: "parsing" });
+
+    try {
+      // Run the Excel file through our NBTE calculator
+      const { parsedData, processedWorkbook } =
+        await processBroadsheetFile(file);
+
+      // Save the structured department results and Excel file to state
+      setTableData(parsedData);
+      setProcessedWorkbook(processedWorkbook);
+      setOriginalFilename(file.name);
+
+      // Transition to the dashboard view
+      setIsProcessed(true);
+      toast.success("Broadsheet calculated successfully!", { id: "parsing" });
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        "Failed to parse the Excel file. Please ensure it is a valid broadsheet.",
+        { id: "parsing" },
+      );
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDownload = () => {
+    if (processedWorkbook) {
+      downloadProcessedSheet(processedWorkbook, originalFilename);
+      toast.success("Excel file downloaded!");
+    }
+  };
+
+  const handleReset = () => {
+    setIsProcessed(false);
+    setTableData([]);
+    setProcessedWorkbook(null);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+
+        <div className="flex flex-1 flex-col h-[calc(100vh-var(--header-height))] overflow-y-auto">
+          <div className="@container/main flex flex-1 flex-col gap-2">
+            {}
+            {isProcessed ? (
+              /* --- DASHBOARD VIEW (Shows after successful calculation) --- */
+              <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* Header Action Bar */}
+                <div className="mx-4 lg:mx-6 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-muted/30 p-4 rounded-xl border gap-4">
+                  {/* <div>
+                    <h2 className="text-xl font-bold tracking-tight">
+                      Processed Results
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      {tableData.length} students calculated.
+                    </p>
+                  </div> */}
+
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    {/* <Button
+                      onClick={handleDownload}
+                      className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex-1 sm:flex-none"
+                    >
+                      <DownloadIcon className="mr-2 size-4" />
+                      Download Processed Excel
+                    </Button> */}
+                    <Button
+                      onClick={handleReset}
+                      variant="outline"
+                      className="flex-1 sm:flex-none"
+                    >
+                      <RefreshCcwIcon className="mr-2 size-4" />
+                      Upload New
+                    </Button>
+                  </div>
+                </div>
+
+                <SectionCards tableData={tableData} />
+
+                <div className="px-4 lg:px-6">
+                  <ChartBar tableData={tableData} />
+                </div>
+
+                {/* Pass the dynamically calculated data to our table */}
+                <DataTable departments={tableData} />
+              </div>
+            ) : (
+              /* --- DROPZONE VIEW (Initial State) --- */
+              <div className="flex flex-1 items-center justify-center p-6 lg:p-10 h-full min-h-[50vh]">
+                <div className="w-full max-w-3xl">
+                  <FileUploadDropzone
+                    onUpload={handleFileUpload}
+                    isProcessing={isProcessing}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
