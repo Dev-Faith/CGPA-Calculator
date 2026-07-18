@@ -67,7 +67,7 @@ export function ChartBar({ tableData }: { tableData: DepartmentData[] }) {
   }, [tableData]);
 
   return (
-    <Card className="h-[750px] w-full @container/chart:h-[300px]">
+    <Card className="min-h-auto w-full @container/chart:h-[300px]">
       <CardHeader>
         <CardTitle>Class of Degree Distribution</CardTitle>
         <CardDescription>Distinction - Fail</CardDescription>
