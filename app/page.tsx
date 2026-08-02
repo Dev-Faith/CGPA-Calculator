@@ -6,6 +6,7 @@ import { DownloadIcon, RefreshCcwIcon } from "lucide-react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { ChartBar } from "@/components/bar-chart";
+import { CalculationSummary } from "@/components/calculation-summary";
 import { DataTable } from "@/components/data-table";
 import { SectionCards } from "@/components/section-cards";
 import { SiteHeader } from "@/components/site-header";
@@ -141,6 +142,9 @@ export default function Page() {
 
                 {/* Pass the dynamically calculated data to our table */}
                 <DataTable departments={tableData} />
+
+                {/* Calculation breakdown and remarks grading guide */}
+                <CalculationSummary />
               </div>
             ) : (
               /* --- DROPZONE VIEW (Initial State) --- */
