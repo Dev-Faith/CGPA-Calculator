@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DownloadIcon, RefreshCcwIcon } from "lucide-react";
 
@@ -13,6 +13,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { FileUploadDropzone } from "@/components/dropzone";
 import { DepartmentData } from "@/lib/cgpa-calculator";
+import { loadParsedResults, saveParsedResults } from "@/lib/parsed-results-cache";
 
 import {
   processBroadsheetFile,
@@ -26,11 +27,22 @@ export default function Page() {
 
   // Data states retrieved from the Excel parser
   const [tableData, setTableData] = useState<DepartmentData[]>([]);
+  
+  useEffect(() => {
+    const cachedResults = loadParsedResults();
+    if (cachedResults.length === 0) return;
+
+    queueMicrotask(() => {
+      setTableData(cachedResults);
+      setIsProcessed(true);
+    });
+  }, []);
   const [processedWorkbook, setProcessedWorkbook] = useState<any>(null);
   const [originalFilename, setOriginalFilename] = useState("");
 
   // The core handler that wires the dropzone to the math engine
   const handleFileUpload = async (file: File) => {
+    const hadPreviousResults = tableData.length > 0;
     setIsProcessing(true);
     toast.loading(`Parsing ${file.name}...`, { id: "parsing" });
 
@@ -41,6 +53,7 @@ export default function Page() {
 
       // Save the structured department results and Excel file to state
       setTableData(parsedData);
+      saveParsedResults(parsedData);
       setProcessedWorkbook(processedWorkbook);
       setOriginalFilename(file.name);
 
@@ -49,6 +62,7 @@ export default function Page() {
       toast.success("Broadsheet calculated successfully!", { id: "parsing" });
     } catch (error) {
       console.error(error);
+      if (hadPreviousResults) setIsProcessed(true);
       toast.error(
         "Failed to parse the Excel file. Please ensure it is a valid broadsheet.",
         { id: "parsing" },
@@ -66,9 +80,8 @@ export default function Page() {
   };
 
   const handleReset = () => {
+    // Retain the current result until a replacement upload finishes successfully.
     setIsProcessed(false);
-    setTableData([]);
-    setProcessedWorkbook(null);
   };
 
   return (

@@ -12,9 +12,13 @@ import {
   Columns3Icon,
   DownloadIcon,
   EllipsisVerticalIcon,
+  EyeIcon,
+  FileTextIcon,
+  Loader2Icon,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { getDegreeClassColor } from "@/lib/degree-class-colors";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -43,6 +47,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  downloadStudentResultPdf,
+  type ResultLetterStudent,
+} from "@/lib/student-result-pdf";
+import { StudentResultModal } from "@/components/student-result-modal";
 
 export const schema = z.object({
   sn: z.number(),
@@ -65,6 +74,58 @@ export type DepartmentData = {
   students: StudentResult[];
 };
 
+type ClassFilter = {
+  value: string;
+  label: string;
+  remarks: readonly string[];
+  colorRemark: string;
+};
+
+function buildVisibleColumns(department?: DepartmentData) {
+  if (!department) return {};
+
+  return {
+    sn: true,
+    name: true,
+    matricNo: true,
+    ...department.courses.reduce(
+      (acc, course) => ({ ...acc, [course.code]: true }),
+      {},
+    ),
+    tgp: true,
+    gpa: true,
+    remark: true,
+  };
+}
+
+const CLASS_FILTERS: ClassFilter[] = [
+  {
+    value: "distinction",
+    label: "Distinction",
+    remarks: ["DISTINCTION"],
+    colorRemark: "DISTINCTION",
+  },
+  {
+    value: "upper-credit",
+    label: "Upper Credit",
+    remarks: ["UPPER CREDIT"],
+    colorRemark: "UPPER CREDIT",
+  },
+  {
+    value: "lower-credit",
+    label: "Lower Credit",
+    remarks: ["LOWER CREDIT"],
+    colorRemark: "LOWER CREDIT",
+  },
+  { value: "pass", label: "Pass", remarks: ["PASS"], colorRemark: "PASS" },
+  {
+    value: "fail",
+    label: "Fail",
+    remarks: ["FAIL", "PROBATION", "WITHDRAWAL"],
+    colorRemark: "FAIL",
+  },
+];
+
 export function DataTable({ departments }: { departments: DepartmentData[] }) {
   // Department State
   const [activeDeptName, setActiveDeptName] = React.useState<string>(
@@ -81,6 +142,12 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
   const [selectedRows, setSelectedRows] = React.useState<Set<string>>(
     new Set(),
   );
+  const [previewStudent, setPreviewStudent] =
+    React.useState<ResultLetterStudent | null>(null);
+  const [pdfJob, setPdfJob] = React.useState<{
+    matricNo: string;
+    action: "view" | "download";
+  } | null>(null);
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
@@ -88,47 +155,39 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
 
   const [visibleColumns, setVisibleColumns] = React.useState<
     Record<string, boolean>
-  >({});
+  >(() => buildVisibleColumns(departments?.[0]));
 
-  // Reset columns and pagination when the department changes
-  React.useEffect(() => {
-    if (activeDepartment) {
-      setVisibleColumns({
-        sn: true,
-        name: true,
-        matricNo: true,
-        ...activeDepartment.courses.reduce(
-          (acc, c) => ({ ...acc, [c.code]: true }),
-          {},
-        ),
-        tgp: true,
-        gpa: true,
-        remark: true,
-      });
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-      setSelectedRows(new Set());
-    }
-  }, [activeDepartment]);
+  const handleDepartmentChange = (departmentName: string) => {
+    if (!departmentName) return;
 
-  const filteredData = React.useMemo(() => {
-    if (!activeDepartment) return [];
-    if (activeTab === "distinctions") {
-      return activeDepartment.students.filter((d) =>
-        ["DISTINCTION", "UPPER CREDIT"].includes(d.remark),
-      );
-    }
-    if (activeTab === "probation") {
-      return activeDepartment.students.filter((d) =>
-        ["PROBATION", "WITHDRAWAL", "FAIL"].includes(d.remark),
-      );
-    }
-    return activeDepartment.students;
-  }, [activeDepartment, activeTab]);
-
-  React.useEffect(() => {
+    const nextDepartment = departments.find(
+      (dept) => dept.name === departmentName,
+    );
+    setActiveDeptName(departmentName);
+    setVisibleColumns(buildVisibleColumns(nextDepartment));
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
     setSelectedRows(new Set());
-  }, [activeTab]);
+  };
+
+  const filteredData = React.useMemo(() => {
+    if (!activeDepartment || activeTab === "all-students")
+      return activeDepartment?.students ?? [];
+
+    const selectedClass = CLASS_FILTERS.find(
+      (filter) => filter.value === activeTab,
+    );
+    return selectedClass
+      ? activeDepartment.students.filter((student) =>
+          selectedClass.remarks.includes(student.remark),
+        )
+      : activeDepartment.students;
+  }, [activeDepartment, activeTab]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+    setSelectedRows(new Set());
+  };
 
   // Handle empty state if no data is passed
   if (!departments || departments.length === 0) {
@@ -217,7 +276,7 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
         if (visibleColumns.tgp) rowData.push(row.tgp);
         if (visibleColumns.gpa)
           rowData.push(
-            typeof row.gpa === "number" ? row.gpa.toFixed(6) : row.gpa,
+            typeof row.gpa === "number" ? row.gpa.toFixed(2) : row.gpa,
           );
         if (visibleColumns.remark) rowData.push(row.remark);
 
@@ -238,22 +297,62 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
       document.body.removeChild(link);
 
       toast.success("Broadsheet downloaded successfully!", { id: "download" });
-    } catch (error) {
+    } catch {
       toast.error("Failed to generate download.", { id: "download" });
     }
   };
 
-  const distinctionCount = activeDepartment.students.filter((d) =>
-    ["DISTINCTION", "UPPER CREDIT"].includes(d.remark),
-  ).length;
-  const probationCount = activeDepartment.students.filter((d) =>
-    ["PROBATION", "WITHDRAWAL", "FAIL"].includes(d.remark),
-  ).length;
+  const handleStudentPdf = async (
+    row: StudentResult,
+    action: "view" | "download",
+  ) => {
+    if (!activeDepartment) return;
+
+    const pdfStudent = {
+      name: row.name,
+      matricNo: row.matricNo,
+      grades: row.grades,
+      gpa: row.gpa,
+      remark: row.remark,
+    };
+
+    setPdfJob({ matricNo: row.matricNo, action });
+
+    try {
+      if (action === "view") {
+        setPreviewStudent(pdfStudent);
+        return;
+      }
+
+      toast.loading(`Downloading PDF for ${row.matricNo}...`, {
+        id: "student-pdf",
+      });
+      await downloadStudentResultPdf(pdfStudent, activeDepartment);
+      toast.success(`PDF downloaded for ${row.matricNo}.`, {
+        id: "student-pdf",
+      });
+    } catch {
+      toast.error(`Failed to generate PDF for ${row.matricNo}.`, {
+        id: "student-pdf",
+      });
+    } finally {
+      setPdfJob(null);
+    }
+  };
+
+  const classCounts = Object.fromEntries(
+    CLASS_FILTERS.map((filter) => [
+      filter.value,
+      activeDepartment.students.filter((student) =>
+        filter.remarks.includes(student.remark),
+      ).length,
+    ]),
+  ) as Record<string, number>;
 
   return (
     <Tabs
       value={activeTab}
-      onValueChange={setActiveTab}
+      onValueChange={handleTabChange}
       className="w-full flex-col justify-start gap-6"
     >
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between px-4 lg:px-6 mb-4">
@@ -264,7 +363,7 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
           </Label>
           <Select
             value={activeTab}
-            onValueChange={(val) => val && setActiveTab(val)}
+            onValueChange={(val) => val && handleTabChange(val)}
           >
             <SelectTrigger
               className="flex w-fit @4xl/main:hidden"
@@ -276,32 +375,35 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
             <SelectContent>
               <SelectGroup>
                 <SelectItem value="all-students">All Students</SelectItem>
-                <SelectItem value="distinctions">Good Standing</SelectItem>
-                <SelectItem value="probation">Probation / Fail</SelectItem>
+                {CLASS_FILTERS.map((filter) => (
+                  <SelectItem key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </SelectItem>
+                ))}
               </SelectGroup>
             </SelectContent>
           </Select>
 
-          <TabsList className="hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:px-1 @4xl/main:flex">
+          <TabsList className="hidden h-auto flex-wrap **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
             <TabsTrigger value="all-students">All Students</TabsTrigger>
-            <TabsTrigger value="distinctions" className="gap-2">
-              Good Standing{" "}
-              <Badge
-                variant="secondary"
-                className="px-1.5 py-0 rounded-full h-5 text-xs"
+            {CLASS_FILTERS.map((filter) => (
+              <TabsTrigger
+                key={filter.value}
+                value={filter.value}
+                className="gap-2"
               >
-                {distinctionCount}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="probation" className="gap-2">
-              Probation / Fail{" "}
-              <Badge
-                variant="secondary"
-                className="px-1.5 py-0 rounded-full h-5 text-xs"
-              >
-                {probationCount}
-              </Badge>
-            </TabsTrigger>
+                {filter.label}
+                <Badge
+                  variant="secondary"
+                  className="h-5 rounded-full px-1.5 py-0 text-xs text-white"
+                  style={{
+                    backgroundColor: getDegreeClassColor(filter.colorRemark),
+                  }}
+                >
+                  {classCounts[filter.value]}
+                </Badge>
+              </TabsTrigger>
+            ))}
           </TabsList>
         </div>
 
@@ -311,7 +413,7 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
           {departments.length > 1 && (
             <Select
               value={activeDeptName}
-              onValueChange={(val) => val && setActiveDeptName(val)}
+              onValueChange={(val) => val && handleDepartmentChange(val)}
             >
               <SelectTrigger className="min-w-auto h-8 text-xs bg-muted/50 border-dashed">
                 <SelectValue placeholder="Select Dept" />
@@ -399,6 +501,19 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
           </Button>
         </div>
       </div>
+
+      {pdfJob && (
+        <div className="px-4 lg:px-6">
+          <div className="flex items-center gap-3 rounded-lg border border-dashed bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+            <Loader2Icon className="size-4 animate-spin text-primary" />
+            <span>
+              {pdfJob.action === "view"
+                ? `Opening PDF for ${pdfJob.matricNo}...`
+                : `Preparing download for ${pdfJob.matricNo}...`}
+            </span>
+          </div>
+        </div>
+      )}
 
       <TabsContent
         value={activeTab}
@@ -496,7 +611,12 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
                   )}
 
                   {visibleColumns.tgp && (
-                    <TableHead className="border-r"></TableHead>
+                    <TableHead className="border-r text-center font-bold">
+                      {activeDepartment.courses.reduce(
+                        (total, course) => total + course.unit,
+                        0,
+                      )}
+                    </TableHead>
                   )}
                   {visibleColumns.gpa && (
                     <TableHead className="border-r"></TableHead>
@@ -509,14 +629,6 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
               <TableBody>
                 {paginatedData.length > 0 ? (
                   paginatedData.map((row, index) => {
-                    const isBad = ["PROBATION", "FAIL", "WITHDRAWAL"].includes(
-                      row.remark,
-                    );
-                    const isExcellent = [
-                      "DISTINCTION",
-                      "UPPER CREDIT",
-                    ].includes(row.remark);
-
                     return (
                       <TableRow
                         key={`${row.matricNo}-${index}`}
@@ -573,30 +685,19 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
                         {visibleColumns.gpa && (
                           <TableCell className="text-center font-mono py-2 border-r">
                             {typeof row.gpa === "number"
-                              ? row.gpa.toFixed(6)
+                              ? row.gpa.toFixed(2)
                               : row.gpa}
                           </TableCell>
                         )}
                         {visibleColumns.remark && (
                           <TableCell className="py-2">
                             <Badge
-                              variant={
-                                isBad
-                                  ? "destructive"
-                                  : isExcellent
-                                    ? "default"
-                                    : "secondary"
-                              }
-                              className={`px-2 py-0.5 gap-1 font-medium ${
-                                row.remark === "DISTINCTION"
-                                  ? "bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white"
-                                  : row.remark === "UPPER CREDIT"
-                                    ? "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white"
-                                    : row.remark === "LOWER CREDIT" ||
-                                        row.remark === "PASS"
-                                      ? "bg-yellow-500 text-yellow-950 hover:bg-yellow-600 dark:bg-yellow-600 dark:hover:bg-yellow-700 dark:text-white"
-                                      : ""
-                              }`}
+                              className="gap-1 border-transparent px-2 py-0.5 font-medium text-white transition-opacity hover:opacity-90"
+                              style={{
+                                backgroundColor: getDegreeClassColor(
+                                  row.remark,
+                                ),
+                              }}
                             >
                               {row.remark}
                             </Badge>
@@ -618,22 +719,20 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40">
                               <DropdownMenuItem
-                                onClick={() =>
-                                  toast.info(
-                                    `Viewing details for ${row.matricNo}`,
-                                  )
-                                }
+                                onClick={() => {
+                                  void handleStudentPdf(row, "view");
+                                }}
                               >
-                                View Breakdown
+                                <EyeIcon className="mr-2 size-4" />
+                                View PDF
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() =>
-                                  toast.info(
-                                    `Manually adjusting ${row.matricNo}`,
-                                  )
-                                }
+                                onClick={() => {
+                                  void handleStudentPdf(row, "download");
+                                }}
                               >
-                                Manual Override
+                                <FileTextIcon className="mr-2 size-4" />
+                                Download PDF
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
@@ -767,6 +866,15 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
           </div>
         </div>
       </TabsContent>
+
+      <StudentResultModal
+        student={previewStudent}
+        department={activeDepartment}
+        open={Boolean(previewStudent)}
+        onOpenChange={(open) => {
+          if (!open) setPreviewStudent(null);
+        }}
+      />
     </Tabs>
   );
 }
