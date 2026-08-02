@@ -17,8 +17,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CGPA Calculator",
-  description: "Calculate your Cumulative Grade Point Average",
+  title: "ECOTEMS - CGPA Calculator & Result System",
+  description:
+    "Elerinmosa College of Technology and Management Science (ECOTEMS) - Broadsheet CGPA Calculator & Result Verification Portal",
 };
 
 export default function RootLayout({

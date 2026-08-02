@@ -236,7 +236,7 @@ export function StudentResultModal({
                   {student.name}
                 </span>{" "}
                 (<span className="font-mono text-sm font-semibold">{student.matricNo}</span>) has completed the prescribed
-                course of study and, with authority vested in the Academic Board of Elerinmosa Institute of Technology,
+                course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Science (ECOTEMS),
                 has been conferred the{" "}
                 <span className="font-bold text-slate-950">
                   National Innovation Diploma (NID)
@@ -289,7 +289,7 @@ export function StudentResultModal({
               <span className="flex items-center gap-1">
                 <ShieldCheckIcon className="size-3 text-emerald-600" /> Official Academic Document
               </span>
-              <span>Elerinmosa Institute of Technology</span>
+              <span>Elerinmosa College of Technology and Management Science (ECOTEMS)</span>
             </div>
           </div>
         </div>

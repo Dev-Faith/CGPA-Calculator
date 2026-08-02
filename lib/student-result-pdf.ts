@@ -52,7 +52,7 @@ export function fileSafe(value: string) {
 export function referenceForStudent(student: ResultLetterStudent) {
   const digits = student.matricNo.replace(/\D/g, "");
   const suffix = digits.slice(-6).padStart(6, "0");
-  return `EIT/ACAD/${suffix.slice(0, 4)}/${suffix.slice(4) || "001"}`;
+  return `ECOTEMS/ACAD/${suffix.slice(0, 4)}/${suffix.slice(4) || "001"}`;
 }
 
 async function createResultPdf(
@@ -126,7 +126,7 @@ async function createResultPdf(
   const firstLinePrefix = "This is to notify that ";
   const firstLineSuffix = ` (${student.matricNo})`;
   const bodyLines = pdf.splitTextToSize(
-    `has completed the prescribed course of study and, with authority vested in the Academic Board of Elerinmosa Institute of Technology, has been conferred the National Innovation Diploma (NID) in ${department.name || "NID"} with ${student.remark}, effective from ${issuedOn}.`,
+    `has completed the prescribed course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Science (ECOTEMS), has been conferred the National Innovation Diploma (NID) in ${department.name || "NID"} with ${student.remark}, effective from ${issuedOn}.`,
     contentWidth,
   );
 

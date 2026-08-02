@@ -20,7 +20,10 @@ function renderPayload(payload: VerificationPayload) {
                 <Badge className="mb-2 rounded-full bg-emerald-600 text-white hover:bg-emerald-600">
                   Verified result
                 </Badge>
-                <CardTitle className="font-serif text-2xl tracking-wide">
+                <div className="text-xs uppercase tracking-wider font-semibold text-slate-600">
+                  ELERINMOSA COLLEGE OF TECHNOLOGY AND MANAGEMENT SCIENCE (ECOTEMS)
+                </div>
+                <CardTitle className="font-serif text-2xl tracking-wide mt-1">
                   Office of the Registrar
                 </CardTitle>
               </div>
