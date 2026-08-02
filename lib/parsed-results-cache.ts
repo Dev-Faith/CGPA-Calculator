@@ -1,4 +1,4 @@
-import type { DepartmentData } from "@/lib/cgpa-calculator";
+import { formatDepartmentDisplayName, type DepartmentData } from "@/lib/cgpa-calculator";
 
 const STORAGE_KEY = "cgpa-calculator:parsed-results";
 
@@ -8,7 +8,12 @@ export function loadParsedResults(): DepartmentData[] {
   try {
     const storedResults = window.sessionStorage.getItem(STORAGE_KEY);
     const parsedResults = storedResults ? JSON.parse(storedResults) : [];
-    return Array.isArray(parsedResults) ? parsedResults : [];
+    if (!Array.isArray(parsedResults)) return [];
+
+    return parsedResults.map((dept) => ({
+      ...dept,
+      name: formatDepartmentDisplayName(dept.name),
+    }));
   } catch {
     return [];
   }

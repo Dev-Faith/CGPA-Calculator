@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 
+import { formatProgrammeName } from "@/lib/cgpa-calculator";
 import {
   buildVerificationUrl,
   createVerificationPayload,
@@ -125,8 +126,9 @@ async function createResultPdf(
 
   const firstLinePrefix = "This is to notify that ";
   const firstLineSuffix = ` (${student.matricNo})`;
+  const programmeName = formatProgrammeName(department.name);
   const bodyLines = pdf.splitTextToSize(
-    `has completed the prescribed course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Science (ECOTEMS), has been conferred the National Innovation Diploma (NID) in ${department.name || "NID"} with ${student.remark}, effective from ${issuedOn}.`,
+    `has completed the prescribed course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Science (ECOTEMS), has been conferred the National Innovation Diploma (NID) in ${programmeName} with ${student.remark}, effective from ${issuedOn}.`,
     contentWidth,
   );
 

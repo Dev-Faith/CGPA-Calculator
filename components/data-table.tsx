@@ -51,6 +51,7 @@ import {
   downloadStudentResultPdf,
   type ResultLetterStudent,
 } from "@/lib/student-result-pdf";
+import { formatDepartmentDisplayName } from "@/lib/cgpa-calculator";
 import { StudentResultModal } from "@/components/student-result-modal";
 
 export const schema = z.object({
@@ -126,11 +127,31 @@ const CLASS_FILTERS: ClassFilter[] = [
   },
 ];
 
-export function DataTable({ departments }: { departments: DepartmentData[] }) {
+export function DataTable({
+  departments: rawDepartments,
+}: {
+  departments: DepartmentData[];
+}) {
+  // Normalize departments so dept.name always uses the authentic department name
+  const departments = React.useMemo(() => {
+    return (rawDepartments || []).map((dept) => ({
+      ...dept,
+      name: formatDepartmentDisplayName(dept.name),
+    }));
+  }, [rawDepartments]);
+
   // Department State
   const [activeDeptName, setActiveDeptName] = React.useState<string>(
     departments?.[0]?.name || "",
   );
+
+  React.useEffect(() => {
+    if (departments.length > 0) {
+      if (!departments.some((d) => d.name === activeDeptName)) {
+        setActiveDeptName(departments[0].name);
+      }
+    }
+  }, [departments, activeDeptName]);
 
   const activeDepartment = React.useMemo(() => {
     return (
@@ -355,6 +376,57 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
       onValueChange={handleTabChange}
       className="w-full flex-col justify-start gap-6"
     >
+      {/* Department Name and Session Header */}
+      <div className="flex flex-col gap-2 px-4 lg:px-6 mb-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+          <div>
+            <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <span className="inline-block size-2.5 rounded-full bg-emerald-500" />
+              {activeDepartment.name}
+            </h2>
+            {(activeDepartment.session !== "N/A" || activeDepartment.semester !== "N/A") && (
+              <p className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2">
+                <span>
+                  Session: <strong className="text-foreground">{activeDepartment.session}</strong>
+                </span>
+                <span>•</span>
+                <span>
+                  Semester: <strong className="text-foreground">{activeDepartment.semester}</strong>
+                </span>
+                <span>•</span>
+                <span>
+                  Students: <strong className="text-foreground">{activeDepartment.students.length}</strong>
+                </span>
+              </p>
+            )}
+          </div>
+          {departments.length > 1 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-muted-foreground">Department:</span>
+              <Select
+                value={activeDeptName}
+                onValueChange={(val) => val && handleDepartmentChange(val)}
+              >
+                <SelectTrigger className="min-w-[220px] max-w-[340px] h-8 text-xs bg-background font-medium truncate">
+                  <SelectValue placeholder="Select Department">
+                    {formatDepartmentDisplayName(activeDepartment?.name)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.name} value={dept.name}>
+                        {formatDepartmentDisplayName(dept.name)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between px-4 lg:px-6 mb-4">
         {/* Left Side: Mobile View Selector & Desktop TabsList */}
         <div>
@@ -407,29 +479,8 @@ export function DataTable({ departments }: { departments: DepartmentData[] }) {
           </TabsList>
         </div>
 
-        {/* Right Side Actions: Department Switcher, Columns, Download */}
+        {/* Right Side Actions: Columns, Download */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Department Switcher */}
-          {departments.length > 1 && (
-            <Select
-              value={activeDeptName}
-              onValueChange={(val) => val && handleDepartmentChange(val)}
-            >
-              <SelectTrigger className="min-w-auto h-8 text-xs bg-muted/50 border-dashed">
-                <SelectValue placeholder="Select Dept" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup className="min-w-auto">
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.name} value={dept.name}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          )}
-
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="outline" size="sm" className="gap-2" />}

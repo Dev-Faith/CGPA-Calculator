@@ -21,6 +21,7 @@ import {
   VERIFICATION_BASE_URL,
   type VerificationPayload,
 } from "@/lib/student-result-verification";
+import { formatProgrammeName } from "@/lib/cgpa-calculator";
 import {
   downloadStudentResultPdf,
   formatDate,
@@ -243,7 +244,7 @@ export function StudentResultModal({
                 </span>{" "}
                 in{" "}
                 <span className="font-bold text-slate-950">
-                  {department.name || "NID"}
+                  {formatProgrammeName(department.name)}
                 </span>{" "}
                 with{" "}
                 <span className="font-bold text-slate-950">
