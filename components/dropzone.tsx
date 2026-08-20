@@ -26,10 +26,10 @@ export interface FileUploadDropzoneProps {
 export function FileUploadDropzone({
   onUpload,
   isProcessing = false,
-  accept = ".xlsx, .xls, .csv",
-  title = "Upload Master Broadsheet",
-  description = "Drag and drop your semester's Excel file here to instantly calculate CGPA.",
-  loadingText = "Calculating Grades...",
+  accept = ".xlsx, .xls, .csv, .docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  title = "Upload Broadsheet or Result Slip",
+  description = "Drag and drop your semester's Excel file or Word DOCX result slip here to instantly generate transcripts.",
+  loadingText = "Processing File...",
 }: FileUploadDropzoneProps) {
   // State to track if a file is currently hovering over the dropzone
   const [isDragging, setIsDragging] = React.useState(false);
@@ -135,7 +135,7 @@ export function FileUploadDropzone({
             {loadingText}
           </>
         ) : (
-          "Select Excel File"
+          "Select File"
         )}
       </Button>
     </div>

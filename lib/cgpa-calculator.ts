@@ -5,18 +5,24 @@ export interface StudentResult {
   sn: number;
   name: string;
   matricNo: string;
-  grades: Record<string, string>;
-  tgp: number; // Total Grade Points (TCP)
-  gpa: number;
+  grades: Record<string, string>; // e.g. { "MTH 101": "A" }
+  scores?: Record<string, number | string>; // e.g. { "MTH 101": 75 }
+  tgp: number;
+  gpa: number | string;
   remark: string;
 }
 
 // Group data by sheet/department for the UI
-export type DepartmentData = {
+export interface DepartmentData {
   name: string;
   session?: string;
   semester?: string;
-  courses: { code: string; unit: number }[];
+  level?: string;
+  courses: {
+    code: string;
+    unit: number;
+    title?: string;
+  }[];
   students: StudentResult[];
 };
 
@@ -270,6 +276,7 @@ export async function processBroadsheetFile(file: File): Promise<{
     
     let session = "N/A";
     let semester = "N/A";
+    let level = "N/A";
 
     // 1. Scan downwards to find Session, Semester, Header Row, and Unit Row
     for (let i = 0; i < Math.min(rows.length, 15); i++) {
@@ -284,6 +291,9 @@ export async function processBroadsheetFile(file: File): Promise<{
         
         const semMatch = rowStr.match(/SEMESTER:\s*([A-Z0-9 ]+)/);
         if (semMatch) semester = semMatch[1].trim();
+
+        const levelMatch = rowStr.match(/LEVEL:\s*([A-Z0-9 ]+)/);
+        if (levelMatch) level = levelMatch[1].trim();
       }
 
       // Find the main header row (MATRIC NO)
@@ -436,6 +446,7 @@ export async function processBroadsheetFile(file: File): Promise<{
       name: departmentName,
       session,
       semester,
+      level,
       courses: courses.map(c => ({ code: c.code, unit: c.unit })),
       students: sheetStudents
     });
@@ -453,4 +464,108 @@ export async function processBroadsheetFile(file: File): Promise<{
 export function downloadProcessedSheet(workbook: XLSX.WorkBook, originalFilename: string) {
   const newFilename = `PROCESSED_${originalFilename}`;
   XLSX.writeFile(workbook, newFilename, { compression: true });
+}
+
+export function recalculateStudentScores(student: StudentResult, courses: { code: string; unit: number }[]) {
+  let tcp = 0;
+  let tcu = 0;
+
+  for (const course of courses) {
+    const gradeVal = student.grades[course.code];
+    if (gradeVal !== undefined && gradeVal !== null && String(gradeVal).trim() !== '') {
+      const gp = getGradePoint(gradeVal);
+      if (gp !== null) {
+        tcp += (gp * course.unit);
+        tcu += course.unit;
+      }
+    }
+  }
+
+  const gpa = tcu > 0 ? tcp / tcu : 0;
+  const finalGpa = Number(gpa.toFixed(2));
+  const remark = getRemark(finalGpa);
+
+  student.tgp = tcp;
+  student.gpa = finalGpa;
+  student.remark = remark;
+}
+
+export function mergeDocxScoresIntoData(
+  spreadsheetData: DepartmentData[],
+  docxData: DepartmentData[]
+): DepartmentData[] {
+  const mergedData: DepartmentData[] = JSON.parse(JSON.stringify(spreadsheetData));
+
+  // Build a lookup map of all DOCX students across all departments
+  const docxStudentMap = new Map<string, StudentResult>();
+  const docxCoursesMap = new Map<string, { code: string; unit: number; title?: string }>();
+
+  for (const dept of docxData) {
+    for (const course of dept.courses) {
+      docxCoursesMap.set(course.code, course);
+    }
+    for (const student of dept.students) {
+      const normalizedMatric = student.matricNo.replace(/\s+/g, '').toUpperCase();
+      docxStudentMap.set(normalizedMatric, student);
+    }
+  }
+
+  for (const dept of mergedData) {
+    // Collect docx courses to add missing ones to the department
+    const newCoursesMap = new Map<string, { code: string; unit: number; title?: string }>();
+    for (const c of dept.courses) {
+      newCoursesMap.set(c.code, c);
+      
+      // Merge title from docx if it exists and isn't a placeholder
+      if (docxCoursesMap.has(c.code)) {
+        const dcourse = docxCoursesMap.get(c.code)!;
+        if (dcourse.title && dcourse.title !== "-") {
+          c.title = dcourse.title;
+        }
+      }
+    }
+
+    // Inherit level, session, semester from DOCX if missing
+    const docxDept = docxData.find(d => d.name === dept.name) || docxData[0];
+    if (docxDept) {
+      if (docxDept.level && docxDept.level !== "N/A" && (!dept.level || dept.level === "N/A")) {
+        dept.level = docxDept.level;
+      }
+      if (docxDept.session && docxDept.session !== "N/A" && (!dept.session || dept.session === "N/A")) {
+        dept.session = docxDept.session;
+      }
+      if (docxDept.semester && docxDept.semester !== "N/A" && (!dept.semester || dept.semester === "N/A")) {
+        dept.semester = docxDept.semester;
+      }
+    }
+
+    for (const student of dept.students) {
+      const normalizedMatric = student.matricNo.replace(/\s+/g, '').toUpperCase();
+      const docxStudent = docxStudentMap.get(normalizedMatric);
+      
+      if (docxStudent) {
+        // Overwrite grades ONLY if they were successfully parsed
+        if (Object.keys(docxStudent.grades).length > 0) {
+          student.grades = { ...docxStudent.grades };
+        }
+        if (docxStudent.scores && Object.keys(docxStudent.scores).length > 0) {
+          student.scores = { ...docxStudent.scores };
+        }
+        
+        // Add any missing courses that this student took
+        for (const code of Object.keys(student.grades)) {
+          if (!newCoursesMap.has(code) && docxCoursesMap.has(code)) {
+            newCoursesMap.set(code, docxCoursesMap.get(code)!);
+            dept.courses.push(docxCoursesMap.get(code)!);
+          }
+        }
+      }
+      // Recalculate GPA based on the merged grades
+      recalculateStudentScores(student, Array.from(newCoursesMap.values()));
+    }
+
+    dept.courses = Array.from(newCoursesMap.values());
+  }
+
+  return mergedData;
 }

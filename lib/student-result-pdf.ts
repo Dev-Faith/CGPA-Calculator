@@ -20,7 +20,7 @@ export type ResultLetterDepartment = {
   name: string;
   session?: string;
   semester?: string;
-  courses: { code: string; unit: number }[];
+  courses: { code: string; unit: number; title?: string }[];
 };
 
 function ordinalSuffix(value: number) {
@@ -99,36 +99,38 @@ async function createResultPdf(
   pdf.setFillColor(255, 255, 255);
   pdf.rect(0, 0, pageWidth, pageHeight, "F");
 
+  const yOffset = 45; // Space for letterhead
+
   pdf.setFont("times", "bold");
   pdf.setFontSize(11);
-  pdf.text(`Our ref: ${reference}`, margin, 16);
-  pdf.text(`Date: ${issuedOn}`, pageWidth - margin, 16, { align: "right" });
+  pdf.text(`Our ref: ${reference}`, margin, 16 + yOffset);
+  pdf.text(`Date: ${issuedOn}`, pageWidth - margin, 16 + yOffset, { align: "right" });
 
   pdf.setDrawColor(180, 224, 180);
   pdf.setLineWidth(0.25);
-  pdf.line(margin, 35, pageWidth - margin, 35);
+  pdf.line(margin, 35 + yOffset, pageWidth - margin, 35 + yOffset);
 
   pdf.setFont("times", "bold");
   pdf.setFontSize(24);
-  pdf.text("OFFICE OF THE REGISTRAR", pageWidth / 2, 58, { align: "center" });
+  pdf.text("OFFICE OF THE REGISTRAR", pageWidth / 2, 58 + yOffset, { align: "center" });
 
   pdf.setFontSize(18);
-  pdf.text("NOTIFICATION OF RESULT", pageWidth / 2, 71, { align: "center" });
-  pdf.line(68, 72, pageWidth - 68, 72);
+  pdf.text("NOTIFICATION OF RESULT", pageWidth / 2, 71 + yOffset, { align: "center" });
+  pdf.line(68, 72 + yOffset, pageWidth - 68, 72 + yOffset);
 
   pdf.setFont("times", "normal");
   pdf.setFontSize(16);
 
   const contentX = 22;
   const contentWidth = 155;
-  const bodyStart = 92;
+  const bodyStart = 92 + yOffset;
   const lineHeight = 10;
 
   const firstLinePrefix = "This is to notify that ";
   const firstLineSuffix = ` (${student.matricNo})`;
   const programmeName = formatProgrammeName(department.name);
   const bodyLines = pdf.splitTextToSize(
-    `has completed the prescribed course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Science (ECOTEMS), has been conferred the National Innovation Diploma (NID) in ${programmeName} with ${student.remark}, effective from ${issuedOn}.`,
+    `has completed the prescribed course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Science (ECOTEMS), has been conferred the National Diploma (ND) in ${programmeName} with ${student.remark} classification, effective from ${issuedOn}.`,
     contentWidth,
   );
 
@@ -145,7 +147,7 @@ async function createResultPdf(
 
   let y = bodyStart + lineHeight;
   for (const line of bodyLines) {
-    const isImportant = /National Innovation Diploma \(NID\)|Upper Credit|Lower Credit|Distinction|Pass|Fail/i.test(line);
+    const isImportant = /National Diploma \(ND\)|Upper Credit|Lower Credit|Distinction|Pass|Fail/i.test(line);
     pdf.setFont("times", isImportant ? "bold" : "normal");
     pdf.text(line, contentX, y);
     y += lineHeight;
@@ -157,12 +159,10 @@ async function createResultPdf(
 
   pdf.setDrawColor(0, 0, 0);
   pdf.setLineWidth(0.3);
-  pdf.line(contentX, pageHeight - 38, contentX + 58, pageHeight - 38);
-  pdf.setFont("times", "normal");
-  pdf.setFontSize(10);
-  pdf.text("Abdulazeez Thani", contentX, pageHeight - 34);
+  pdf.line(contentX, pageHeight - 34, contentX + 58, pageHeight - 34);
   pdf.setFont("times", "bold");
-  pdf.text("Ag. Registrar", contentX, pageHeight - 29);
+  pdf.setFontSize(11);
+  pdf.text("Ag. Registrar", contentX, pageHeight - 28);
 
   if (qrCodeDataUrl) {
     const qrSize = 31;

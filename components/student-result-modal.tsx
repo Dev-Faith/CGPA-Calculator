@@ -124,12 +124,12 @@ export function StudentResultModal({
         <head>
           <title>${student.name} - Notification of Result</title>
           <style>
-            @page { size: A4; margin: 15mm; }
+            @page { size: A4; margin: 45mm 15mm 15mm 15mm; }
             body {
               font-family: "Times New Roman", Times, serif;
               color: #000;
               margin: 0;
-              padding: 20px;
+              padding: 0;
               background: #fff;
               line-height: 1.6;
             }
@@ -208,7 +208,7 @@ export function StudentResultModal({
         <div className="overflow-y-auto p-4 md:p-8 flex justify-center bg-slate-200/70 dark:bg-slate-950/80">
           <div
             ref={printRef}
-            className="w-full max-w-[650px] bg-white text-slate-950 p-8 md:p-12 rounded-sm shadow-xl border border-slate-300 font-serif relative"
+            className="w-full max-w-[650px] bg-white text-slate-950 p-8 md:p-12 pt-16 md:pt-20 rounded-sm shadow-xl border border-slate-300 font-serif relative"
             style={{ minHeight: "750px" }}
           >
             {/* Top reference and date */}
@@ -240,7 +240,7 @@ export function StudentResultModal({
                 course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Science (ECOTEMS),
                 has been conferred the{" "}
                 <span className="font-bold text-slate-950">
-                  National Innovation Diploma (NID)
+                  National Diploma (ND)
                 </span>{" "}
                 in{" "}
                 <span className="font-bold text-slate-950">
@@ -249,8 +249,8 @@ export function StudentResultModal({
                 with{" "}
                 <span className="font-bold text-slate-950">
                   {student.remark}
-                </span>
-                , effective from {issuedOn}.
+                </span>{" "}
+                classification, effective from {issuedOn}.
               </p>
 
               <p className="font-serif">Please accept our congratulations.</p>
@@ -261,7 +261,6 @@ export function StudentResultModal({
               {/* Signature block */}
               <div className="space-y-1">
                 <div className="w-44 border-b border-slate-900 mb-2" />
-                <p className="text-sm font-serif text-slate-900">Abdulazeez Thani</p>
                 <p className="text-sm font-serif font-bold text-slate-900">Ag. Registrar</p>
               </div>
 

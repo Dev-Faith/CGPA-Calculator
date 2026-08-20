@@ -25,7 +25,9 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -51,8 +53,13 @@ import {
   downloadStudentResultPdf,
   type ResultLetterStudent,
 } from "@/lib/student-result-pdf";
+import {
+  viewStudentTranscriptPdf,
+  downloadStudentTranscriptPdf,
+} from "@/lib/student-transcript-pdf";
 import { formatDepartmentDisplayName } from "@/lib/cgpa-calculator";
 import { StudentResultModal } from "@/components/student-result-modal";
+import * as XLSX from "xlsx";
 
 export const schema = z.object({
   sn: z.number(),
@@ -197,11 +204,19 @@ export function DataTable({
     const selectedClass = CLASS_FILTERS.find(
       (filter) => filter.value === activeTab,
     );
-    return selectedClass
-      ? activeDepartment.students.filter((student) =>
+    const students = activeDepartment.students;
+    const filtered = selectedClass
+      ? students.filter((student) =>
           selectedClass.remarks.includes(student.remark),
         )
-      : activeDepartment.students;
+      : [...students];
+
+    return filtered.sort((a, b) => {
+      // Handle cases where sn might be missing or invalid by placing them at the end
+      const snA = typeof a.sn === 'number' ? a.sn : Infinity;
+      const snB = typeof b.sn === 'number' ? b.sn : Infinity;
+      return snA - snB;
+    });
   }, [activeDepartment, activeTab]);
 
   const handleTabChange = (value: string) => {
@@ -256,6 +271,8 @@ export function DataTable({
         (c) => visibleColumns[c.code],
       );
 
+      const aoa: any[][] = [];
+
       // Uses Dynamic Session and Semester from the Excel Sheet
       const sessionStr = activeDepartment.session
         ? `SESSION: ${activeDepartment.session}`
@@ -263,9 +280,14 @@ export function DataTable({
       const semesterStr = activeDepartment.semester
         ? `SEMESTER: ${activeDepartment.semester}`
         : "SEMESTER: N/A";
+      const levelStr = (activeDepartment as any).level
+        ? `LEVEL: ${(activeDepartment as any).level}`
+        : "LEVEL: N/A";
 
-      let csv = `${sessionStr},DEPARTMENT: ${activeDepartment.name},,,${semesterStr}\n`;
+      // Row 1
+      aoa.push([sessionStr, `DEPARTMENT: ${activeDepartment.name}`, levelStr, semesterStr]);
 
+      // Row 2 (Headers)
       const headers = [];
       if (visibleColumns.sn) headers.push("S/N");
       if (visibleColumns.name) headers.push("NAME");
@@ -274,9 +296,9 @@ export function DataTable({
       if (visibleColumns.tgp) headers.push("TGP");
       if (visibleColumns.gpa) headers.push("GPA");
       if (visibleColumns.remark) headers.push("REMARK");
+      aoa.push(headers);
 
-      csv += headers.map((h) => `"${h}"`).join(",") + "\n";
-
+      // Row 3 (SubHeaders)
       const subHeaders = [];
       if (visibleColumns.sn) subHeaders.push("");
       if (visibleColumns.name) subHeaders.push("");
@@ -285,14 +307,14 @@ export function DataTable({
       if (visibleColumns.tgp) subHeaders.push("");
       if (visibleColumns.gpa) subHeaders.push("");
       if (visibleColumns.remark) subHeaders.push("");
+      aoa.push(subHeaders);
 
-      csv += subHeaders.map((h) => `"${h}"`).join(",") + "\n";
-
+      // Data Rows
       filteredData.forEach((row) => {
         const rowData = [];
         if (visibleColumns.sn) rowData.push(row.sn);
-        if (visibleColumns.name) rowData.push(`"${row.name}"`);
-        if (visibleColumns.matricNo) rowData.push(`"${row.matricNo}"`);
+        if (visibleColumns.name) rowData.push(row.name);
+        if (visibleColumns.matricNo) rowData.push(row.matricNo);
         activeCourses.forEach((c) => rowData.push(row.grades[c.code] || ""));
         if (visibleColumns.tgp) rowData.push(row.tgp);
         if (visibleColumns.gpa)
@@ -300,24 +322,37 @@ export function DataTable({
             typeof row.gpa === "number" ? row.gpa.toFixed(2) : row.gpa,
           );
         if (visibleColumns.remark) rowData.push(row.remark);
-
-        csv += rowData.join(",") + "\n";
+        aoa.push(rowData);
       });
 
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute(
-        "download",
-        `${activeDepartment.name.replace(/\s+/g, "_")}_Broadsheet.csv`,
-      );
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
 
-      toast.success("Broadsheet downloaded successfully!", { id: "download" });
+      // Calculate max width for each column to set !cols
+      const colWidths = headers.map((header, colIndex) => {
+        let maxWidth = header.length;
+        // Check Row 1 spanning cells
+        if (colIndex < aoa[0].length) {
+          maxWidth = Math.max(maxWidth, String(aoa[0][colIndex] || "").length);
+        }
+        for (let i = 2; i < aoa.length; i++) {
+          const cellValue = String(aoa[i][colIndex] || "");
+          maxWidth = Math.max(maxWidth, cellValue.length);
+        }
+        return { wch: maxWidth + 2 }; // Add padding
+      });
+
+      worksheet["!cols"] = colWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Broadsheet");
+
+      XLSX.writeFile(
+        workbook,
+        `${activeDepartment.name.replace(/\s+/g, "_")}_Broadsheet.xlsx`,
+        { compression: true },
+      );
+
+      toast.success("Broadsheet downloaded successfully", { id: "download" });
     } catch {
       toast.error("Failed to generate download.", { id: "download" });
     }
@@ -329,13 +364,7 @@ export function DataTable({
   ) => {
     if (!activeDepartment) return;
 
-    const pdfStudent = {
-      name: row.name,
-      matricNo: row.matricNo,
-      grades: row.grades,
-      gpa: row.gpa,
-      remark: row.remark,
-    };
+    const pdfStudent = { ...row };
 
     setPdfJob({ matricNo: row.matricNo, action });
 
@@ -358,6 +387,42 @@ export function DataTable({
       });
     } finally {
       setPdfJob(null);
+    }
+  };
+
+  const handleStudentTranscript = async (
+    row: StudentResult,
+    action: "view" | "download",
+  ) => {
+    if (!activeDepartment) return;
+
+    const pdfStudent = { ...row } as any;
+
+    try {
+      if (action === "view") {
+        toast.loading(`Opening transcript for ${row.matricNo}...`, {
+          id: "student-transcript",
+        });
+        const success = await viewStudentTranscriptPdf(pdfStudent, activeDepartment as any);
+        if (success) {
+          toast.success(`Transcript opened.`, { id: "student-transcript" });
+        } else {
+          toast.error("Popup blocked. Please allow popups.", { id: "student-transcript" });
+        }
+        return;
+      }
+
+      toast.loading(`Downloading transcript for ${row.matricNo}...`, {
+        id: "student-transcript",
+      });
+      await downloadStudentTranscriptPdf(pdfStudent, activeDepartment as any);
+      toast.success(`Transcript downloaded for ${row.matricNo}.`, {
+        id: "student-transcript",
+      });
+    } catch {
+      toast.error(`Failed to generate transcript for ${row.matricNo}.`, {
+        id: "student-transcript",
+      });
     }
   };
 
@@ -768,27 +833,54 @@ export function DataTable({
                               <EllipsisVerticalIcon className="size-4" />
                               <span className="sr-only">Open menu</span>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  void handleStudentPdf(row, "view");
-                                }}
-                              >
-                                <EyeIcon className="mr-2 size-4" />
-                                View PDF
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  void handleStudentPdf(row, "download");
-                                }}
-                              >
-                                <FileTextIcon className="mr-2 size-4" />
-                                Download PDF
-                              </DropdownMenuItem>
+                            <DropdownMenuContent align="end" className="w-56 rounded-xl shadow-lg">
+                              <DropdownMenuGroup>
+                                <DropdownMenuLabel className="font-semibold text-xs text-muted-foreground tracking-wider uppercase">
+                                  Result Statement
+                                </DropdownMenuLabel>
+                                <DropdownMenuItem
+                                  className="cursor-pointer"
+                                  onClick={() => {
+                                    void handleStudentPdf(row, "view");
+                                  }}
+                                >
+                                  <EyeIcon className="mr-2 size-4 text-emerald-600" />
+                                  View Statement
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="cursor-pointer"
+                                  onClick={() => {
+                                    void handleStudentPdf(row, "download");
+                                  }}
+                                >
+                                  <DownloadIcon className="mr-2 size-4 text-emerald-600" />
+                                  Download Statement
+                                </DropdownMenuItem>
+                              </DropdownMenuGroup>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
-                                Exclude Student
-                              </DropdownMenuItem>
+                              <DropdownMenuGroup>
+                                <DropdownMenuLabel className="font-semibold text-xs text-muted-foreground tracking-wider uppercase">
+                                  Academic Transcript
+                                </DropdownMenuLabel>
+                                <DropdownMenuItem
+                                  className="cursor-pointer"
+                                  onClick={() => {
+                                    void handleStudentTranscript(row, "view");
+                                  }}
+                                >
+                                  <EyeIcon className="mr-2 size-4 text-blue-600" />
+                                  View Transcript
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="cursor-pointer"
+                                  onClick={() => {
+                                    void handleStudentTranscript(row, "download");
+                                  }}
+                                >
+                                  <DownloadIcon className="mr-2 size-4 text-blue-600" />
+                                  Download Transcript
+                                </DropdownMenuItem>
+                              </DropdownMenuGroup>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
