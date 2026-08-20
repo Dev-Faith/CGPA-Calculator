@@ -71,29 +71,30 @@ async function createTranscriptPdf(
   
   // --- Header ---
   pdf.setFontSize(16);
-  pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY AND MANAGEMENT SCIENCES", pageWidth / 2, 22, { align: "center" });
+  pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, 22, { align: "center" });
+  pdf.text("AND MANAGEMENT SCIENCE ( ECOTEMS)", pageWidth / 2, 29, { align: "center" });
   
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(11);
-  pdf.text("Erin-Osun, Osun State, Nigeria", pageWidth / 2, 28, { align: "center" });
+  pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, 35, { align: "center" });
   
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(14);
-  pdf.text(`${student.name.toUpperCase()} TRANSCRIPT`, pageWidth / 2, 38, { align: "center" });
+  pdf.text(`${student.name.toUpperCase()} TRANSCRIPT`, pageWidth / 2, 45, { align: "center" });
   
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(11);
-  pdf.text(`Matric No: `, pageWidth / 2 - 20, 46, { align: "right" });
+  pdf.text(`Matric No: `, pageWidth / 2 - 20, 53, { align: "right" });
   pdf.setFont("helvetica", "bold");
-  pdf.text(student.matricNo, pageWidth / 2 - 18, 46, { align: "left" });
+  pdf.text(student.matricNo, pageWidth / 2 - 18, 53, { align: "left" });
   
   pdf.setFont("helvetica", "normal");
-  pdf.text(`Remarks: `, pageWidth / 2 - 20, 52, { align: "right" });
+  pdf.text(`Remarks: `, pageWidth / 2 - 20, 59, { align: "right" });
   pdf.setFont("helvetica", "bold");
-  pdf.text(student.remark, pageWidth / 2 - 18, 52, { align: "left" });
+  pdf.text(student.remark, pageWidth / 2 - 18, 59, { align: "left" });
 
   // --- Student Details & QR Code ---
-  const detailsY = 65;
+  const detailsY = 72;
   const lineSpacing = 6;
   const programmeName = formatProgrammeName(department.name);
 
@@ -110,11 +111,13 @@ async function createTranscriptPdf(
   if (qrCodeDataUrl) {
     const qrSize = 25;
     const qrX = pageWidth - margin - qrSize - 5;
-    const qrY = detailsY - 10;
-    pdf.addImage(qrCodeDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+    const qrY = detailsY - 15;
+    
     pdf.setFontSize(7);
     pdf.setFont("helvetica", "normal");
-    pdf.text("Scan to Verify", qrX + (qrSize / 2), qrY + qrSize + 4, { align: "center" });
+    pdf.text("Scan to Verify", qrX + (qrSize / 2), qrY, { align: "center" });
+    
+    pdf.addImage(qrCodeDataUrl, "PNG", qrX, qrY + 2, qrSize, qrSize);
   }
 
   // --- Separator Line ---
