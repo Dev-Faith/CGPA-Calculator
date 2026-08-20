@@ -59,7 +59,8 @@ import {
 } from "@/lib/student-transcript-pdf";
 import { formatDepartmentDisplayName } from "@/lib/cgpa-calculator";
 import { StudentResultModal } from "@/components/student-result-modal";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 
 export const schema = z.object({
   sn: z.number(),
@@ -262,7 +263,7 @@ export function DataTable({
     setVisibleColumns((prev) => ({ ...prev, [colId]: !prev[colId] }));
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!activeDepartment) return;
     toast.loading("Generating broadsheet...", { id: "download" });
 
@@ -271,23 +272,33 @@ export function DataTable({
         (c) => visibleColumns[c.code],
       );
 
-      const aoa: any[][] = [];
+      // Create Workbook and Worksheet
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Broadsheet");
 
-      // Uses Dynamic Session and Semester from the Excel Sheet
-      const sessionStr = activeDepartment.session
-        ? `SESSION: ${activeDepartment.session}`
-        : "SESSION: N/A";
-      const semesterStr = activeDepartment.semester
-        ? `SEMESTER: ${activeDepartment.semester}`
-        : "SEMESTER: N/A";
-      const levelStr = (activeDepartment as any).level
-        ? `LEVEL: ${(activeDepartment as any).level}`
-        : "LEVEL: N/A";
+      // 1. Title Row
+      worksheet.mergeCells('A1:J1');
+      const titleRow1 = worksheet.getCell('A1');
+      titleRow1.value = "ELERINMOSA COLLEGE OF TECHNOLOGY AND MANAGEMENT SCIENCE ( ECOTEMS), EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.";
+      titleRow1.font = { bold: false, size: 11 };
 
-      // Row 1
-      aoa.push([sessionStr, `DEPARTMENT: ${activeDepartment.name}`, levelStr, semesterStr]);
+      // 2. Department Row
+      worksheet.mergeCells('A2:J2');
+      const titleRow2 = worksheet.getCell('A2');
+      const upperDeptName = activeDepartment.name.toUpperCase();
+      titleRow2.value = upperDeptName.startsWith("DEPARTMENT") ? upperDeptName : `DEPARTMENT OF ${upperDeptName}`;
+      titleRow2.font = { bold: false, size: 11 };
 
-      // Row 2 (Headers)
+      // 4. Session & Semester (Row 3 is left blank implicitly)
+      const sessionStr = activeDepartment.session ? `SESSION: ${activeDepartment.session}` : "SESSION: N/A";
+      const semesterStr = activeDepartment.semester ? `SEMESTER: ${activeDepartment.semester}` : "SEMESTER: N/A";
+      const levelStr = (activeDepartment as any).level ? `LEVEL: ${(activeDepartment as any).level}` : "LEVEL: N/A";
+
+      worksheet.getCell('A4').value = sessionStr;
+      worksheet.getCell('D4').value = semesterStr;
+      worksheet.getCell('H4').value = levelStr;
+
+      // 5. Headers (Row 5)
       const headers = [];
       if (visibleColumns.sn) headers.push("S/N");
       if (visibleColumns.name) headers.push("NAME");
@@ -296,20 +307,40 @@ export function DataTable({
       if (visibleColumns.tgp) headers.push("TGP");
       if (visibleColumns.gpa) headers.push("GPA");
       if (visibleColumns.remark) headers.push("REMARK");
-      aoa.push(headers);
-
-      // Row 3 (SubHeaders)
+      
+      const headerRow = worksheet.addRow(headers);
+      
+      // 6. SubHeaders (Row 6)
       const subHeaders = [];
       if (visibleColumns.sn) subHeaders.push("");
       if (visibleColumns.name) subHeaders.push("");
       if (visibleColumns.matricNo) subHeaders.push("COURSE UNIT");
-      activeCourses.forEach((c) => subHeaders.push(c.unit));
+      activeCourses.forEach((c) => subHeaders.push(String(c.unit)));
       if (visibleColumns.tgp) subHeaders.push("");
       if (visibleColumns.gpa) subHeaders.push("");
       if (visibleColumns.remark) subHeaders.push("");
-      aoa.push(subHeaders);
+      
+      const subHeaderRow = worksheet.addRow(subHeaders);
 
-      // Data Rows
+      // Style headers and subheaders
+      [headerRow, subHeaderRow].forEach(row => {
+        row.eachCell((cell) => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFC4D79B' }
+          };
+          cell.font = { bold: true };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        });
+      });
+
+      // 7. Data rows
       filteredData.forEach((row) => {
         const rowData = [];
         if (visibleColumns.sn) rowData.push(row.sn);
@@ -317,40 +348,38 @@ export function DataTable({
         if (visibleColumns.matricNo) rowData.push(row.matricNo);
         activeCourses.forEach((c) => rowData.push(row.grades[c.code] || ""));
         if (visibleColumns.tgp) rowData.push(row.tgp);
-        if (visibleColumns.gpa)
-          rowData.push(
-            typeof row.gpa === "number" ? row.gpa.toFixed(2) : row.gpa,
-          );
+        if (visibleColumns.gpa) rowData.push(typeof row.gpa === "number" ? row.gpa.toFixed(2) : row.gpa);
         if (visibleColumns.remark) rowData.push(row.remark);
-        aoa.push(rowData);
+
+        const dataRow = worksheet.addRow(rowData);
+        dataRow.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        });
       });
 
-      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
-
-      // Calculate max width for each column to set !cols
-      const colWidths = headers.map((header, colIndex) => {
-        let maxWidth = header.length;
-        // Check Row 1 spanning cells
-        if (colIndex < aoa[0].length) {
-          maxWidth = Math.max(maxWidth, String(aoa[0][colIndex] || "").length);
-        }
-        for (let i = 2; i < aoa.length; i++) {
-          const cellValue = String(aoa[i][colIndex] || "");
-          maxWidth = Math.max(maxWidth, cellValue.length);
-        }
-        return { wch: maxWidth + 2 }; // Add padding
+      // 8. Adjust Column Widths
+      worksheet.columns.forEach(column => {
+        let maxLength = 0;
+        column.eachCell!({ includeEmpty: true }, (cell, rowNumber) => {
+          if (rowNumber > 4) { // Ignore titles
+            const columnLength = cell.value ? cell.value.toString().length : 0;
+            if (columnLength > maxLength) {
+              maxLength = columnLength;
+            }
+          }
+        });
+        column.width = maxLength < 10 ? 10 : maxLength + 2;
       });
 
-      worksheet["!cols"] = colWidths;
-
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Broadsheet");
-
-      XLSX.writeFile(
-        workbook,
-        `${activeDepartment.name.replace(/\s+/g, "_")}_Broadsheet.xlsx`,
-        { compression: true },
-      );
+      // 9. Download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      saveAs(blob, `${activeDepartment.name.replace(/\\s+/g, "_")}_Broadsheet.xlsx`);
 
       toast.success("Broadsheet downloaded successfully", { id: "download" });
     } catch {
