@@ -61,6 +61,7 @@ import { formatDepartmentDisplayName } from "@/lib/cgpa-calculator";
 import { StudentResultModal } from "@/components/student-result-modal";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
+import { loadLogoDataUrl } from "@/lib/logo-loader";
 
 export const schema = z.object({
   sn: z.number(),
@@ -208,8 +209,8 @@ export function DataTable({
     const students = activeDepartment.students;
     const filtered = selectedClass
       ? students.filter((student) =>
-          selectedClass.remarks.includes(student.remark),
-        )
+        selectedClass.remarks.includes(student.remark),
+      )
       : [...students];
 
     return filtered.sort((a, b) => {
@@ -276,29 +277,62 @@ export function DataTable({
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Broadsheet");
 
-      // 1. Title Row
-      worksheet.mergeCells('A1:J1');
-      const titleRow1 = worksheet.getCell('A1');
-      titleRow1.value = "ELERINMOSA COLLEGE OF TECHNOLOGY AND MANAGEMENT SCIENCE ( ECOTEMS), EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.";
-      titleRow1.font = { bold: false, size: 11 };
+      // --- Logo ---
+      const logoDataUrl = await loadLogoDataUrl();
+      if (logoDataUrl) {
+        // Convert data URL to ArrayBuffer
+        const base64 = logoDataUrl.split(',')[1];
+        const binaryStr = atob(base64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+        const imageId = workbook.addImage({ buffer: bytes.buffer, extension: 'png' });
+        // Place logo anchored at top-left, with exact dimensions to prevent squashing
+        worksheet.addImage(imageId, {
+          tl: { col: 0.2, row: 0.2 },
+          ext: { width: 75, height: 75 }
+        });
+      }
 
-      // 2. Department Row
-      worksheet.mergeCells('A2:J2');
-      const titleRow2 = worksheet.getCell('A2');
+      // 1. School Name Row
+      worksheet.mergeCells('C1:M1');
+      const titleRow1 = worksheet.getCell('C1');
+      titleRow1.value = "ELERINMOSA COLLEGE OF TECHNOLOGY AND MANAGEMENT SCIENCE ( ECOTEMS)";
+      titleRow1.font = { bold: true, size: 14, color: { argb: 'FF000000' } };
+
+      // 2. School Address Row
+      worksheet.mergeCells('C2:M2');
+      const addressRow = worksheet.getCell('C2');
+      addressRow.value = "EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.";
+      addressRow.font = { bold: false, size: 11, color: { argb: 'FF000000' } };
+
+      // 3. Department Row
+      worksheet.mergeCells('C3:M3');
+      const deptRow = worksheet.getCell('C3');
       const upperDeptName = activeDepartment.name.toUpperCase();
-      titleRow2.value = upperDeptName.startsWith("DEPARTMENT") ? upperDeptName : `DEPARTMENT OF ${upperDeptName}`;
-      titleRow2.font = { bold: false, size: 11 };
+      deptRow.value = upperDeptName.startsWith("DEPARTMENT") ? upperDeptName : `DEPARTMENT OF ${upperDeptName}`;
+      deptRow.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
 
-      // 4. Session & Semester (Row 3 is left blank implicitly)
+      // 4. Session, Semester & Level
       const sessionStr = activeDepartment.session ? `SESSION: ${activeDepartment.session}` : "SESSION: N/A";
       const semesterStr = activeDepartment.semester ? `SEMESTER: ${activeDepartment.semester}` : "SEMESTER: N/A";
       const levelStr = (activeDepartment as any).level ? `LEVEL: ${(activeDepartment as any).level}` : "LEVEL: N/A";
 
-      worksheet.getCell('A4').value = sessionStr;
-      worksheet.getCell('D4').value = semesterStr;
-      worksheet.getCell('H4').value = levelStr;
+      worksheet.mergeCells('C4:M4');
+      worksheet.getCell('C4').value = sessionStr;
+      worksheet.getCell('C4').font = { bold: true, size: 11, color: { argb: 'FF000000' } };
+      
+      worksheet.mergeCells('C5:M5');
+      worksheet.getCell('C5').value = semesterStr;
+      worksheet.getCell('C5').font = { bold: true, size: 11, color: { argb: 'FF000000' } };
+      
+      worksheet.mergeCells('C6:M6');
+      worksheet.getCell('C6').value = levelStr;
+      worksheet.getCell('C6').font = { bold: true, size: 11, color: { argb: 'FF000000' } };
+      
+      // Add some spacing before headers start
+      const headerRowIndex = 8;
 
-      // 5. Headers (Row 5)
+      // 5. Headers (Row 7)
       const headers = [];
       if (visibleColumns.sn) headers.push("S/N");
       if (visibleColumns.name) headers.push("NAME");
@@ -307,10 +341,11 @@ export function DataTable({
       if (visibleColumns.tgp) headers.push("TGP");
       if (visibleColumns.gpa) headers.push("GPA");
       if (visibleColumns.remark) headers.push("REMARK");
-      
-      const headerRow = worksheet.addRow(headers);
-      
-      // 6. SubHeaders (Row 6)
+
+      const headerRow = worksheet.getRow(headerRowIndex);
+      headerRow.values = headers;
+
+      // 6. SubHeaders (Row 8)
       const subHeaders = [];
       if (visibleColumns.sn) subHeaders.push("");
       if (visibleColumns.name) subHeaders.push("");
@@ -319,8 +354,9 @@ export function DataTable({
       if (visibleColumns.tgp) subHeaders.push("");
       if (visibleColumns.gpa) subHeaders.push("");
       if (visibleColumns.remark) subHeaders.push("");
-      
-      const subHeaderRow = worksheet.addRow(subHeaders);
+
+      const subHeaderRow = worksheet.getRow(headerRowIndex + 1);
+      subHeaderRow.values = subHeaders;
 
       // Style headers and subheaders
       [headerRow, subHeaderRow].forEach(row => {
@@ -340,16 +376,22 @@ export function DataTable({
         });
       });
 
-      // 7. Data rows
-      filteredData.forEach((row) => {
+      // 7. Freeze panes
+      worksheet.views = [
+        { state: "frozen", xSplit: 0, ySplit: headerRowIndex + 1 }
+      ];
+
+      // 8. Add Data (Starting Row 9)
+      const dataStartingRow = headerRowIndex + 2;
+      filteredData.forEach((student, index) => {
         const rowData = [];
-        if (visibleColumns.sn) rowData.push(row.sn);
-        if (visibleColumns.name) rowData.push(row.name);
-        if (visibleColumns.matricNo) rowData.push(row.matricNo);
-        activeCourses.forEach((c) => rowData.push(row.grades[c.code] || ""));
-        if (visibleColumns.tgp) rowData.push(row.tgp);
-        if (visibleColumns.gpa) rowData.push(typeof row.gpa === "number" ? row.gpa.toFixed(2) : row.gpa);
-        if (visibleColumns.remark) rowData.push(row.remark);
+        if (visibleColumns.sn) rowData.push(index + 1);
+        if (visibleColumns.name) rowData.push(student.name);
+        if (visibleColumns.matricNo) rowData.push(student.matricNo);
+        activeCourses.forEach((c) => rowData.push(student.grades?.[c.code] || "-"));
+        if (visibleColumns.tgp) rowData.push(student.tgp);
+        if (visibleColumns.gpa) rowData.push(typeof student.gpa === "number" ? student.gpa.toFixed(2) : student.gpa);
+        if (visibleColumns.remark) rowData.push(student.remark);
 
         const dataRow = worksheet.addRow(rowData);
         dataRow.eachCell((cell) => {
@@ -362,11 +404,11 @@ export function DataTable({
         });
       });
 
-      // 8. Adjust Column Widths
+      // 9. Adjust Column Widths
       worksheet.columns.forEach(column => {
         let maxLength = 0;
         column.eachCell!({ includeEmpty: true }, (cell, rowNumber) => {
-          if (rowNumber > 4) { // Ignore titles
+          if (rowNumber >= headerRowIndex) { // Ignore titles and metadata (rows 1-6)
             const columnLength = cell.value ? cell.value.toString().length : 0;
             if (columnLength > maxLength) {
               maxLength = columnLength;
@@ -376,10 +418,10 @@ export function DataTable({
         column.width = maxLength < 10 ? 10 : maxLength + 2;
       });
 
-      // 9. Download
+      // 10. Download
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      saveAs(blob, `${activeDepartment.name.replace(/\\s+/g, "_")}_Broadsheet.xlsx`);
+      saveAs(blob, `${activeDepartment.name.replace(/\s+/g, "_")}_Broadsheet.xlsx`);
 
       toast.success("Broadsheet downloaded successfully", { id: "download" });
     } catch {

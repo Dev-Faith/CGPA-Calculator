@@ -30,7 +30,7 @@ export default function Page() {
 
   // Data states retrieved from the Excel parser
   const [tableData, setTableData] = useState<DepartmentData[]>([]);
-  
+
   useEffect(() => {
     const cachedResults = loadParsedResults();
     if (cachedResults.length === 0) return;
@@ -142,7 +142,7 @@ export default function Page() {
 
         <div className="flex flex-1 flex-col h-[calc(100vh-var(--header-height))] overflow-y-auto">
           <div className="@container/main flex flex-1 flex-col gap-2">
-            {}
+            { }
             {isProcessed ? (
               /* --- DASHBOARD VIEW (Shows after successful calculation) --- */
               <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -173,12 +173,12 @@ export default function Page() {
                       <FileUpIcon className="mr-2 size-4" />
                       Merge DOCX Scores
                     </Button>
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      accept=".docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
-                      onChange={handleMergeFileChange} 
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept=".docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={handleMergeFileChange}
                     />
                     <Button
                       onClick={handleReset}

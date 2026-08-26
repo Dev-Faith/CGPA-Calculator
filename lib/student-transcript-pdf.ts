@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import autoTable from "jspdf-autotable";
+import { loadLogoDataUrl } from "@/lib/logo-loader";
 
 import { formatProgrammeName } from "@/lib/cgpa-calculator";
 import {
@@ -47,20 +48,20 @@ async function createTranscriptPdf(
   // Validation code from verification string (just using first 10 chars of reference or a hash)
   const validationCode = reference.split('/').join('').slice(0, 10).toUpperCase();
 
-  let qrCodeDataUrl: string | null = null;
-  try {
-    qrCodeDataUrl = await QRCode.toDataURL(verificationUrl, {
+  // Load logo and QR code in parallel
+  const [logoDataUrl, qrResult] = await Promise.allSettled([
+    loadLogoDataUrl(),
+    QRCode.toDataURL(verificationUrl, {
       errorCorrectionLevel: "L",
       margin: 0,
       width: 150,
-      color: {
-        dark: "#000000",
-        light: "#ffffff",
-      },
-    });
-  } catch (err) {
-    console.error("Failed to generate QR code for PDF:", err);
-  }
+      color: { dark: "#000000", light: "#ffffff" },
+    }),
+  ]);
+
+  const logoUrl = logoDataUrl.status === "fulfilled" ? logoDataUrl.value : null;
+  let qrCodeDataUrl: string | null = null;
+  if (qrResult.status === "fulfilled") qrCodeDataUrl = qrResult.value;
 
   pdf.setDrawColor(255, 255, 255);
   pdf.setFillColor(255, 255, 255);
@@ -68,33 +69,49 @@ async function createTranscriptPdf(
 
   // Use sans-serif font like the screenshot
   pdf.setFont("helvetica", "bold");
-  
-  // --- Header ---
+
+  // --- Logo Header ---
+  const logoSize = 24; // mm
+  const logoX = pageWidth / 2 - logoSize / 2;
+  const logoY = 5;
+  if (logoUrl) {
+    pdf.addImage(logoUrl, "PNG", logoX, logoY, logoSize, logoSize);
+  }
+
+  // School name
   pdf.setFontSize(16);
-  pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, 22, { align: "center" });
-  pdf.text("AND MANAGEMENT SCIENCE ( ECOTEMS)", pageWidth / 2, 29, { align: "center" });
-  
+  pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, logoY + logoSize + 5, { align: "center" });
+  pdf.text("AND MANAGEMENT SCIENCE ( ECOTEMS)", pageWidth / 2, logoY + logoSize + 11, { align: "center" });
+
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(11);
-  pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, 35, { align: "center" });
-  
+  pdf.setFontSize(10);
+  pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, logoY + logoSize + 17, { align: "center" });
+
+  // Blue divider
+  pdf.setDrawColor(20, 60, 140);
+  pdf.setLineWidth(0.6);
+  pdf.line(margin, logoY + logoSize + 21, pageWidth - margin, logoY + logoSize + 21);
+
+  const headerBottom = logoY + logoSize + 21;
+
+  // Transcript title
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(14);
-  pdf.text(`${student.name.toUpperCase()} TRANSCRIPT`, pageWidth / 2, 45, { align: "center" });
+  pdf.text(`${student.name.toUpperCase()} TRANSCRIPT`, pageWidth / 2, headerBottom + 8, { align: "center" });
   
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(11);
-  pdf.text(`Matric No: `, pageWidth / 2 - 20, 53, { align: "right" });
+  pdf.text(`Matric No: `, pageWidth / 2 - 20, headerBottom + 16, { align: "right" });
   pdf.setFont("helvetica", "bold");
-  pdf.text(student.matricNo, pageWidth / 2 - 18, 53, { align: "left" });
+  pdf.text(student.matricNo, pageWidth / 2 - 18, headerBottom + 16, { align: "left" });
   
   pdf.setFont("helvetica", "normal");
-  pdf.text(`Remarks: `, pageWidth / 2 - 20, 59, { align: "right" });
+  pdf.text(`Remarks: `, pageWidth / 2 - 20, headerBottom + 22, { align: "right" });
   pdf.setFont("helvetica", "bold");
-  pdf.text(student.remark, pageWidth / 2 - 18, 59, { align: "left" });
+  pdf.text(student.remark, pageWidth / 2 - 18, headerBottom + 22, { align: "left" });
 
   // --- Student Details & QR Code ---
-  const detailsY = 72;
+  const detailsY = headerBottom + 35;
   const lineSpacing = 6;
   const programmeName = formatProgrammeName(department.name);
 

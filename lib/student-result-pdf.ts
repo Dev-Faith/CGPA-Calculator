@@ -1,4 +1,5 @@
 import QRCode from "qrcode";
+import { loadLogoDataUrl } from "@/lib/logo-loader";
 
 import { formatProgrammeName } from "@/lib/cgpa-calculator";
 import {
@@ -80,26 +81,48 @@ async function createResultPdf(
     verificationPayload,
   );
 
-  let qrCodeDataUrl: string | null = null;
-  try {
-    qrCodeDataUrl = await QRCode.toDataURL(verificationUrl, {
+  // Load logo and QR code in parallel
+  const [logoDataUrl, qrResult] = await Promise.allSettled([
+    loadLogoDataUrl(),
+    QRCode.toDataURL(verificationUrl, {
       errorCorrectionLevel: "L",
       margin: 1,
       width: 260,
-      color: {
-        dark: "#000000",
-        light: "#ffffff",
-      },
-    });
-  } catch (err) {
-    console.error("Failed to generate QR code for PDF:", err);
-  }
+      color: { dark: "#000000", light: "#ffffff" },
+    }),
+  ]);
+
+  const logoUrl = logoDataUrl.status === "fulfilled" ? logoDataUrl.value : null;
+  let qrCodeDataUrl: string | null = null;
+  if (qrResult.status === "fulfilled") qrCodeDataUrl = qrResult.value;
 
   pdf.setDrawColor(255, 255, 255);
   pdf.setFillColor(255, 255, 255);
   pdf.rect(0, 0, pageWidth, pageHeight, "F");
 
-  const yOffset = 45; // Space for letterhead
+  // --- Letterhead with logo ---
+  const logoSize = 28; // mm
+  const logoX = pageWidth / 2 - logoSize / 2;
+  const logoY = 6;
+  if (logoUrl) {
+    pdf.addImage(logoUrl, "PNG", logoX, logoY, logoSize, logoSize);
+  }
+
+  // School name text below logo
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, logoY + logoSize + 5, { align: "center" });
+  pdf.text("AND MANAGEMENT SCIENCE (ECOTEMS)", pageWidth / 2, logoY + logoSize + 11, { align: "center" });
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, logoY + logoSize + 17, { align: "center" });
+
+  // Divider line
+  pdf.setDrawColor(20, 60, 140);
+  pdf.setLineWidth(0.6);
+  pdf.line(margin, logoY + logoSize + 21, pageWidth - margin, logoY + logoSize + 21);
+
+  const yOffset = logoY + logoSize + 21; // dynamic offset based on logo height
 
   pdf.setFont("times", "bold");
   pdf.setFontSize(11);

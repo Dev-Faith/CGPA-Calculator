@@ -79,19 +79,17 @@ export function FileUploadDropzone({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`relative flex w-full flex-col items-center justify-center gap-6 rounded-3xl border-2 border-dashed p-12 text-center transition-all duration-300 ease-in-out sm:p-16 ${
-        isDragging
+      className={`relative flex w-full flex-col items-center justify-center gap-6 rounded-3xl border-2 border-dashed p-12 text-center transition-all duration-300 ease-in-out sm:p-16 ${isDragging
           ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20 scale-[1.02]"
           : "border-muted-foreground/25 bg-background hover:bg-muted/30 hover:border-muted-foreground/40"
-      } ${isProcessing ? "pointer-events-none opacity-80" : ""}`}
+        } ${isProcessing ? "pointer-events-none opacity-80" : ""}`}
     >
       {/* Icon Container */}
       <div
-        className={`rounded-full p-6 shadow-inner transition-colors duration-300 ${
-          isDragging
+        className={`rounded-full p-6 shadow-inner transition-colors duration-300 ${isDragging
             ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"
             : "bg-muted text-muted-foreground dark:bg-muted/50"
-        }`}
+          }`}
       >
         {isProcessing ? (
           <FileSpreadsheetIcon

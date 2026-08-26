@@ -152,11 +152,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               render={<a href="#" />}
             >
               <Image
-                src="/profile.png"
-                alt="Profile"
+                src="/ecotems-logo.png"
+                alt="ECOTEMS Logo"
                 width={30}
                 height={30}
-                className="rounded-full "
+                className="rounded-full bg-white p-0.5"
               />
               <span className="text-base font-semibold">Engr. Dr L.A Ajao</span>
             </SidebarMenuButton>
