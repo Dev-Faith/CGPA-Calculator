@@ -111,18 +111,18 @@ async function createResultPdf(
   // School name text below logo
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(12);
-  pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, logoY + logoSize + 5, { align: "center" });
-  pdf.text("AND MANAGEMENT SCIENCE (ECOTEMS)", pageWidth / 2, logoY + logoSize + 11, { align: "center" });
+  pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, logoY + logoSize + 8, { align: "center" });
+  pdf.text("AND MANAGEMENT SCIENCE (ECOTEMS)", pageWidth / 2, logoY + logoSize + 14, { align: "center" });
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
-  pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, logoY + logoSize + 17, { align: "center" });
+  pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, logoY + logoSize + 20, { align: "center" });
 
   // Divider line
   pdf.setDrawColor(20, 60, 140);
   pdf.setLineWidth(0.6);
-  pdf.line(margin, logoY + logoSize + 21, pageWidth - margin, logoY + logoSize + 21);
+  pdf.line(margin, logoY + logoSize + 24, pageWidth - margin, logoY + logoSize + 24);
 
-  const yOffset = logoY + logoSize + 21; // dynamic offset based on logo height
+  const yOffset = logoY + logoSize + 24; // dynamic offset based on logo height
 
   pdf.setFont("times", "bold");
   pdf.setFontSize(11);

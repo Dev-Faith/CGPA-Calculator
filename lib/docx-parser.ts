@@ -1,5 +1,6 @@
 import mammoth from "mammoth";
 import { DepartmentData, StudentResult } from "@/lib/cgpa-calculator";
+import { recalculateStudentScores } from "./cgpa-calculator";
 
 export async function processDocxFile(file: File): Promise<{ parsedData: DepartmentData[] }> {
   const arrayBuffer = await file.arrayBuffer();
@@ -139,7 +140,7 @@ export async function processDocxFile(file: File): Promise<{ parsedData: Departm
     }
     finalizeCourse();
 
-    students.push({
+    const newStudent: StudentResult = {
       sn: index + 1,
       name,
       matricNo,
@@ -148,7 +149,12 @@ export async function processDocxFile(file: File): Promise<{ parsedData: Departm
       tgp: totalPoints,
       grades,
       scores,
-    });
+    };
+
+    // Automatically recalculate to fix any human errors in the source document
+    recalculateStudentScores(newStudent, Array.from(globalCoursesMap.values()));
+    
+    students.push(newStudent);
   });
 
   // Since we already populated globalCoursesMap in the first pass, we can just use it directly!

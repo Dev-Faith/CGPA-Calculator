@@ -45,8 +45,8 @@ async function createTranscriptPdf(
     verificationPayload,
   );
   
-  // Validation code from verification string (just using first 10 chars of reference or a hash)
-  const validationCode = reference.split('/').join('').slice(0, 10).toUpperCase();
+  // Validation code from verification string
+  const validationCode = reference;
 
   // Load logo and QR code in parallel
   const [logoDataUrl, qrResult] = await Promise.allSettled([
@@ -80,19 +80,19 @@ async function createTranscriptPdf(
 
   // School name
   pdf.setFontSize(16);
-  pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, logoY + logoSize + 5, { align: "center" });
-  pdf.text("AND MANAGEMENT SCIENCE ( ECOTEMS)", pageWidth / 2, logoY + logoSize + 11, { align: "center" });
+  pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, logoY + logoSize + 8, { align: "center" });
+  pdf.text("AND MANAGEMENT SCIENCE ( ECOTEMS)", pageWidth / 2, logoY + logoSize + 15, { align: "center" });
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
-  pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, logoY + logoSize + 17, { align: "center" });
+  pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, logoY + logoSize + 21, { align: "center" });
 
   // Blue divider
   pdf.setDrawColor(20, 60, 140);
   pdf.setLineWidth(0.6);
-  pdf.line(margin, logoY + logoSize + 21, pageWidth - margin, logoY + logoSize + 21);
+  pdf.line(margin, logoY + logoSize + 25, pageWidth - margin, logoY + logoSize + 25);
 
-  const headerBottom = logoY + logoSize + 21;
+  const headerBottom = logoY + logoSize + 25;
 
   // Transcript title
   pdf.setFont("helvetica", "normal");
@@ -176,7 +176,7 @@ async function createTranscriptPdf(
     
     // We calculate the specific GP for this course if we can
     let gpStr = "-";
-    const gradePoints: Record<string, number> = { "A": 4.0, "AB": 3.5, "B": 3.25, "BC": 3.0, "C": 2.75, "CD": 2.5, "D": 2.25, "E": 2.0, "F": 0 };
+    const gradePoints: Record<string, number> = { "A": 4.0, "AB": 3.5, "B": 3.0, "BC": 2.5, "C": 2.0, "CD": 1.5, "D": 1.0, "E": 0.5, "F": 0 };
     if (gradePoints[grade] !== undefined) {
       gpStr = (gradePoints[grade] * course.unit).toFixed(2);
     }
@@ -250,26 +250,26 @@ async function createTranscriptPdf(
   pdf.setFont("helvetica", "bold");
   pdf.text(`Total Units:`, margin, finalY);
   pdf.setFont("helvetica", "normal");
-  pdf.text(totalUnits.toString(), margin + 25, finalY);
+  pdf.text(totalUnits.toString(), margin + 30, finalY);
 
   finalY += 8;
   pdf.setFont("helvetica", "bold");
   pdf.text(`Total Points:`, margin, finalY);
   pdf.setFont("helvetica", "normal");
-  pdf.text(tgpValue.toString(), margin + 25, finalY);
+  pdf.text(tgpValue.toString(), margin + 30, finalY);
 
   finalY += 8;
   pdf.setFont("helvetica", "bold");
   pdf.text(`Final CGPA:`, margin, finalY);
   pdf.setFont("helvetica", "normal");
-  pdf.text(gpaValue.toString(), margin + 25, finalY);
+  pdf.text(gpaValue.toString(), margin + 30, finalY);
 
   finalY += 12;
   pdf.setFontSize(10);
   pdf.setFont("helvetica", "bold");
   pdf.text(`Validation Code:`, margin, finalY);
   pdf.setFont("helvetica", "normal");
-  pdf.text(validationCode, margin + 30, finalY);
+  pdf.text(validationCode, margin + 35, finalY);
   
   finalY += 5;
   pdf.setFontSize(8);

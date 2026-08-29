@@ -30,12 +30,12 @@ export interface DepartmentData {
 const NBTE_SCALE: Record<string, number> = {
   'A': 4.00,
   'AB': 3.50,
-  'B': 3.25,
-  'BC': 3.00,
-  'C': 2.75,
-  'CD': 2.50,
-  'D': 2.25,
-  'E': 2.00,
+  'B': 3.00,
+  'BC': 2.50,
+  'C': 2.00,
+  'CD': 1.50,
+  'D': 1.00,
+  'E': 0.50,
   'F': 0.00,
 };
 
@@ -51,12 +51,12 @@ function getGradePoint(value: string | number): number | null {
     const score = Number(value);
     if (score >= 75) return 4.00; // A
     if (score >= 70) return 3.50; // AB
-    if (score >= 65) return 3.25; // B
-    if (score >= 60) return 3.00; // BC
-    if (score >= 55) return 2.75; // C
-    if (score >= 50) return 2.50; // CD
-    if (score >= 45) return 2.25; // D
-    if (score >= 40) return 2.00; // E
+    if (score >= 65) return 3.00; // B
+    if (score >= 60) return 2.50; // BC
+    if (score >= 55) return 2.00; // C
+    if (score >= 50) return 1.50; // CD
+    if (score >= 45) return 1.00; // D
+    if (score >= 40) return 0.50; // E
     return 0.00; // F
   }
 
