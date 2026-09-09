@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Department {
+  id         Int         @id @default(autoincrement())
+  code       String      @unique
+  name       String
+  resultSets ResultSet[]
+}
+
+model Session {
+  id         Int         @id @default(autoincrement())
+  label      String      @unique // e.g. "2024/2025"
+  resultSets ResultSet[]
+}
+
+model ResultSet {
+  id           Int          @id @default(autoincrement())
+  departmentId Int
+  sessionId    Int
+  // The level is set by the server from the semester: 1–2 = ND1, 3–4 = ND2.
+  // It is retained here as a snapshot so result records remain easy to query.
+  level        String
+  semester     Int
+  version      Int          @default(1)
+  status       String       @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
+  source       String       @default("UPLOAD") // UPLOAD | PASTE
+  uploadedAt   DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  publishedAt  DateTime?
+  department   Department   @relation(fields: [departmentId], references: [id])
+  session      Session      @relation(fields: [sessionId], references: [id])
+  courses      Course[]
+  enrollments  Enrollment[]
+
+  // Re-imports are retained as versions. At most one version is published by
+  // the API for a department/session/semester combination.
+  @@unique([departmentId, sessionId, semester, version])
+  @@index([departmentId, sessionId, semester, status])
+}
+
+model Course {
+  id          Int           @id @default(autoincrement())
+  code        String
+  title       String?
+  unit        Int
+  resultSetId Int
+  resultSet   ResultSet     @relation(fields: [resultSetId], references: [id], onDelete: Cascade)
+  grades      CourseGrade[]
+}
+
+model Student {
+  id          Int          @id @default(autoincrement())
+  matricNo    String       @unique
+  name        String
+  enrollments Enrollment[]
+}
+
+model Enrollment {
+  id          Int           @id @default(autoincrement())
+  studentId   Int
+  resultSetId Int
+  tgp         Float
+  tcu         Int
+  gpa         Float
+  remark      String
+  student     Student       @relation(fields: [studentId], references: [id])
+  resultSet   ResultSet     @relation(fields: [resultSetId], references: [id], onDelete: Cascade)
+  grades      CourseGrade[]
+
+  @@unique([studentId, resultSetId])
+}
+
+model CourseGrade {
+  id           Int        @id @default(autoincrement())
+  enrollmentId Int
+  courseId     Int
+  grade        String
+  gradePoint   Float
+  score        Float?
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  course       Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}

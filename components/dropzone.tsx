@@ -13,6 +13,8 @@ export interface FileUploadDropzoneProps {
   onUpload: (file: File) => void;
   /** Disables the dropzone and shows a loading spinner */
   isProcessing?: boolean;
+  /** Prevents selecting/dropping a file until prerequisite information is complete. */
+  disabled?: boolean;
   /** Allowed file extensions (e.g., ".xlsx, .csv") */
   accept?: string;
   /** Main heading text */
@@ -26,6 +28,7 @@ export interface FileUploadDropzoneProps {
 export function FileUploadDropzone({
   onUpload,
   isProcessing = false,
+  disabled = false,
   accept = ".xlsx, .xls, .csv, .docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   title = "Upload Broadsheet or Result Slip",
   description = "Drag and drop your semester's Excel file or Word DOCX result slip here to instantly generate transcripts.",
@@ -39,7 +42,7 @@ export function FileUploadDropzone({
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isProcessing) {
+    if (!isProcessing && !disabled) {
       setIsDragging(true);
     }
   };
@@ -55,7 +58,7 @@ export function FileUploadDropzone({
     e.stopPropagation();
     setIsDragging(false);
 
-    if (isProcessing) return;
+    if (isProcessing || disabled) return;
 
     const file = e.dataTransfer.files?.[0];
     if (file) {
@@ -65,7 +68,7 @@ export function FileUploadDropzone({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && !isProcessing) {
+    if (file && !isProcessing && !disabled) {
       onUpload(file);
     }
     // Reset the input value so the same file can be uploaded again if needed
@@ -82,7 +85,7 @@ export function FileUploadDropzone({
       className={`relative flex w-full flex-col items-center justify-center gap-6 rounded-3xl border-2 border-dashed p-12 text-center transition-all duration-300 ease-in-out sm:p-16 ${isDragging
           ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20 scale-[1.02]"
           : "border-muted-foreground/25 bg-background hover:bg-muted/30 hover:border-muted-foreground/40"
-        } ${isProcessing ? "pointer-events-none opacity-80" : ""}`}
+        } ${(isProcessing || disabled) ? "pointer-events-none opacity-60" : ""}`}
     >
       {/* Icon Container */}
       <div
@@ -118,11 +121,11 @@ export function FileUploadDropzone({
         className="hidden"
         accept={accept}
         onChange={handleFileSelect}
-        disabled={isProcessing}
+        disabled={isProcessing || disabled}
       />
 
       <Button
-        disabled={isProcessing}
+        disabled={isProcessing || disabled}
         onClick={() => fileInputRef.current?.click()}
         size="lg"
         className="mt-4 rounded-full px-8 py-6 text-base shadow-md transition-all hover:shadow-lg"
@@ -133,7 +136,7 @@ export function FileUploadDropzone({
             {loadingText}
           </>
         ) : (
-          "Select File"
+          disabled ? "Complete academic context first" : "Select File"
         )}
       </Button>
     </div>

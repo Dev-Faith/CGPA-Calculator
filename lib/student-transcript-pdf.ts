@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import autoTable from "jspdf-autotable";
+import type { RowInput } from "jspdf-autotable";
 import { loadLogoDataUrl } from "@/lib/logo-loader";
 
 import { formatProgrammeName } from "@/lib/cgpa-calculator";
@@ -148,7 +149,7 @@ async function createTranscriptPdf(
   pdf.setFontSize(12);
   pdf.setFont("helvetica", "bold");
   const sessionText = department.session && department.session !== "N/A" ? department.session : "N/A";
-  const levelText = (department as any).level && (department as any).level !== "N/A" ? (department as any).level : "N/A";
+  const levelText = department.level && department.level !== "N/A" ? department.level : "N/A";
   
   pdf.text(`SESSION: ${sessionText}`, margin, finalY);
   pdf.text(`LEVEL: ${levelText}`, pageWidth - margin, finalY, { align: "right" });
@@ -159,7 +160,7 @@ async function createTranscriptPdf(
   pdf.text(`SEMESTER: ${semesterText}`, margin, finalY);
 
   // --- Course Table ---
-  const tableData = [];
+  const tableData: RowInput[] = [];
   let index = 1;
   
   // Calculate total units and tgp
@@ -216,7 +217,7 @@ async function createTranscriptPdf(
   autoTable(pdf, {
     startY: finalY,
     head: [["SN", "Course Code", "Course Title", "Unit", "Score", "Grade", "GP"]],
-    body: tableData as any,
+    body: tableData,
     theme: "plain",
     styles: {
       font: "helvetica",
@@ -242,8 +243,8 @@ async function createTranscriptPdf(
     margin: { left: margin, right: margin },
   });
 
-  // @ts-ignore
-  finalY = pdf.lastAutoTable.finalY + 15;
+  const lastAutoTable = (pdf as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable;
+  finalY = (lastAutoTable?.finalY ?? finalY) + 15;
 
   // --- Summary Footer ---
   pdf.setFontSize(12);

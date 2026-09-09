@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   decodeVerificationPayload,
   type VerificationPayload,
@@ -11,23 +11,23 @@ type VerificationPageProps = {
 
 function renderPayload(payload: VerificationPayload) {
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(232,240,255,1),_rgba(248,250,252,1)_45%,_rgba(255,255,255,1))] px-4 py-10 text-slate-900">
+    <div className="min-h-screen bg-muted/30 px-4 py-10">
       <div className="mx-auto w-full max-w-3xl">
-        <Card className="overflow-hidden border-slate-200 shadow-xl">
-          <CardHeader className="border-b bg-slate-50/80">
+        <Card className="overflow-hidden shadow-sm">
+          <CardHeader className="border-b bg-muted/30">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <Badge className="mb-2 rounded-full bg-emerald-600 text-white hover:bg-emerald-600">
+                <Badge className="mb-2 rounded-full">
                   Verified result
                 </Badge>
-                <div className="text-xs uppercase tracking-wider font-semibold text-slate-600">
+                <div className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   ELERINMOSA COLLEGE OF TECHNOLOGY AND MANAGEMENT SCIENCE (ECOTEMS)
                 </div>
-                <CardTitle className="font-serif text-2xl tracking-wide mt-1">
+                <CardTitle className="mt-1 text-2xl tracking-tight">
                   Office of the Registrar
                 </CardTitle>
               </div>
-              <div className="text-right text-sm text-slate-600">
+              <div className="text-right text-sm text-muted-foreground">
                 <div>Ref: {payload.reference}</div>
                 <div>Date: {payload.issuedOn}</div>
               </div>
@@ -39,26 +39,26 @@ function renderPayload(payload: VerificationPayload) {
               the QR code.
             </p>
 
-            <div className="grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2">
+            <div className="grid gap-4 rounded-lg border bg-muted/30 p-5 md:grid-cols-2">
               <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                <div className="text-xs tracking-[0.2em] text-muted-foreground uppercase">
                   Student
                 </div>
                 <div className="mt-1 text-lg font-semibold">
                   {payload.name}
                 </div>
-                <div className="font-mono text-sm text-slate-700">
+                <div className="font-mono text-sm text-muted-foreground">
                   {payload.matricNo}
                 </div>
               </div>
               <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                <div className="text-xs tracking-[0.2em] text-muted-foreground uppercase">
                   Result
                 </div>
                 <div className="mt-1 text-lg font-semibold">
                   {payload.remark}
                 </div>
-                <div className="font-mono text-sm text-slate-700">
+                <div className="font-mono text-sm text-muted-foreground">
                   GPA:{" "}
                   {typeof payload.gpa === "number"
                     ? payload.gpa.toFixed(2)
@@ -66,30 +66,30 @@ function renderPayload(payload: VerificationPayload) {
                 </div>
               </div>
               <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                <div className="text-xs tracking-[0.2em] text-muted-foreground uppercase">
                   Department
                 </div>
                 <div className="mt-1 text-lg font-semibold">
                   {payload.dept}
                 </div>
-                <div className="text-sm text-slate-700">
+                <div className="text-sm text-muted-foreground">
                   {payload.session ?? "N/A"} / {payload.semester ?? "N/A"}
                 </div>
               </div>
               <div>
-                <div className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                <div className="text-xs tracking-[0.2em] text-muted-foreground uppercase">
                   Courses
                 </div>
                 <div className="mt-1 text-lg font-semibold">
                   {payload.courseCount ?? "N/A"}
                 </div>
-                <div className="text-sm text-slate-700">
+                <div className="text-sm text-muted-foreground">
                   Recorded course entries
                 </div>
               </div>
             </div>
 
-            <p className="text-slate-600">
+            <p className="text-muted-foreground">
               If you opened this from a printed result letter, the QR code
               pointed to this page and carries the student-specific payload used
               to generate the document.
@@ -109,15 +109,10 @@ export default async function VerifyResultPage({
 
   if (!data) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-slate-700">
-        <div className="max-w-md rounded-2xl border bg-white p-6 shadow-sm">
-          <h1 className="font-serif text-2xl font-bold text-slate-900">
-            Verification unavailable
-          </h1>
-          <p className="mt-3 text-sm leading-6">
-            This link does not contain a verification payload.
-          </p>
-        </div>
+      <div className="grid min-h-screen place-items-center bg-muted/30 p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader><CardTitle>Verification unavailable</CardTitle><CardDescription>This link does not contain a verification payload.</CardDescription></CardHeader>
+        </Card>
       </div>
     );
   }
@@ -126,15 +121,10 @@ export default async function VerifyResultPage({
 
   if (!payload) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-slate-700">
-        <div className="max-w-md rounded-2xl border bg-white p-6 shadow-sm">
-          <h1 className="font-serif text-2xl font-bold text-slate-900">
-            Invalid verification code
-          </h1>
-          <p className="mt-3 text-sm leading-6">
-            The QR payload could not be decoded.
-          </p>
-        </div>
+      <div className="grid min-h-screen place-items-center bg-muted/30 p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader><CardTitle>Invalid verification code</CardTitle><CardDescription>The QR payload could not be decoded.</CardDescription></CardHeader>
+        </Card>
       </div>
     );
   }

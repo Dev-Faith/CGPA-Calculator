@@ -19,7 +19,6 @@ import {
   buildVerificationUrl,
   createVerificationPayload,
   VERIFICATION_BASE_URL,
-  type VerificationPayload,
 } from "@/lib/student-result-verification";
 import { formatProgrammeName } from "@/lib/cgpa-calculator";
 import {
@@ -43,7 +42,7 @@ export function StudentResultModal({
   open,
   onOpenChange,
 }: StudentResultModalProps) {
-  const [qrCodeUrl, setQrCodeUrl] = React.useState<string | null>(null);
+  const [qrCode, setQrCode] = React.useState({ source: "", dataUrl: "" });
   const [isDownloading, setIsDownloading] = React.useState(false);
   const printRef = React.useRef<HTMLDivElement>(null);
 
@@ -65,10 +64,7 @@ export function StudentResultModal({
   }, [student, department, issuedOn, reference]);
 
   React.useEffect(() => {
-    if (!verificationUrl) {
-      setQrCodeUrl(null);
-      return;
-    }
+    if (!verificationUrl) return;
 
     let isMounted = true;
     QRCode.toDataURL(verificationUrl, {
@@ -81,7 +77,7 @@ export function StudentResultModal({
       },
     })
       .then((url) => {
-        if (isMounted) setQrCodeUrl(url);
+        if (isMounted) setQrCode({ source: verificationUrl, dataUrl: url });
       })
       .catch((err) => {
         console.error("Failed to generate QR code:", err);
@@ -93,6 +89,8 @@ export function StudentResultModal({
   }, [verificationUrl]);
 
   if (!student || !department) return null;
+
+  const qrCodeUrl = qrCode.source === verificationUrl ? qrCode.dataUrl : null;
 
   const handleDownload = async () => {
     setIsDownloading(true);

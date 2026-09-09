@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // One-off local inspection scripts; they are not application modules.
+    "read_docx.js",
+    "test-*.js",
+    "test_*.js",
   ]),
 ]);
 

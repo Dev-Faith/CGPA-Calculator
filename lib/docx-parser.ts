@@ -2,6 +2,18 @@ import mammoth from "mammoth";
 import { DepartmentData, StudentResult } from "@/lib/cgpa-calculator";
 import { recalculateStudentScores } from "./cgpa-calculator";
 
+function gradeForScore(score: number) {
+  if (score >= 75) return "A";
+  if (score >= 70) return "AB";
+  if (score >= 65) return "B";
+  if (score >= 60) return "BC";
+  if (score >= 55) return "C";
+  if (score >= 50) return "CD";
+  if (score >= 45) return "D";
+  if (score >= 40) return "E";
+  return "F";
+}
+
 export async function processDocxFile(file: File): Promise<{ parsedData: DepartmentData[] }> {
   const arrayBuffer = await file.arrayBuffer();
   const result = await mammoth.extractRawText({ arrayBuffer });
@@ -68,9 +80,6 @@ export async function processDocxFile(file: File): Promise<{ parsedData: Departm
     const remarkMatch = chunk.match(/Remark\s*[-–]\s*(.*)/im);
     const remark = remarkMatch ? remarkMatch[1].trim().toUpperCase() : "PASS";
 
-    const creditsMatch = chunk.match(/Total Credit\s*units\s*=\s*([\d.]+)/im);
-    const totalCredits = creditsMatch ? parseFloat(creditsMatch[1]) : 0;
-
     const pointsMatch = chunk.match(/Total Grade Points\s*=\s*([\d.]+)/im);
     const totalPoints = pointsMatch ? parseFloat(pointsMatch[1]) : 0;
 
@@ -95,7 +104,13 @@ export async function processDocxFile(file: File): Promise<{ parsedData: Departm
       }
 
       const validGrades = courseGrades.filter(g => g !== "-");
-      const finalGrade = validGrades.length > 0 ? validGrades[0] : (courseGrades.length > 0 ? "-" : null);
+      const finalGrade = validGrades.length > 0
+        ? validGrades[0]
+        : score !== null
+          ? gradeForScore(score)
+          : courseGrades.length > 0
+            ? "-"
+            : null;
 
       if (finalGrade !== null) {
          grades[currentCourseCode] = finalGrade;

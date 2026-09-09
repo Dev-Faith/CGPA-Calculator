@@ -26,6 +26,8 @@ export interface DepartmentData {
   students: StudentResult[];
 };
 
+type SheetCell = string | number | boolean | Date | null | undefined;
+
 // NBTE 4.0 Grading Scale Mapping
 const NBTE_SCALE: Record<string, number> = {
   'A': 4.00,
@@ -159,7 +161,7 @@ export function formatDepartmentDisplayName(name?: string): string {
  * Normalizes and extracts the actual department name from the broadsheet contents.
  */
 export function extractDepartmentName(
-  rows: any[][],
+  rows: SheetCell[][],
   headerRowIndex: number,
   sheetName: string,
   courses: { code: string }[] = [],
@@ -201,7 +203,7 @@ export function extractDepartmentName(
 
       // Direct startsWith
       if (upper.startsWith("DEPARTMENT OF ") || upper.startsWith("DEPT OF ") || upper.startsWith("DEPT. OF ")) {
-        let extracted = str.trim().replace(/,\s*ERIN\s+OSUN.*$/i, "").trim().toUpperCase();
+        const extracted = str.trim().replace(/,\s*ERIN\s+OSUN.*$/i, "").trim().toUpperCase();
         return extracted;
       }
     }
@@ -266,7 +268,7 @@ export async function processBroadsheetFile(file: File): Promise<{
 
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as any[][];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as unknown as SheetCell[][];
 
     let headerRowIndex = -1;
     let unitRowIndex = -1;
@@ -395,12 +397,17 @@ export async function processBroadsheetFile(file: File): Promise<{
       let tcp = 0;
       let tcu = 0;
       const studentGrades: Record<string, string> = {};
+      const studentScores: Record<string, number> = {};
 
       for (const course of courses) {
         const gradeVal = row[course.colIndex];
         
         if (gradeVal !== undefined && gradeVal !== null && String(gradeVal).trim() !== '') {
-          const gp = getGradePoint(gradeVal);
+          const numericScore = Number(gradeVal);
+          if (Number.isFinite(numericScore) && numericScore >= 0 && numericScore <= 100) {
+            studentScores[course.code] = numericScore;
+          }
+          const gp = getGradePoint(typeof gradeVal === "number" ? gradeVal : String(gradeVal));
           
           if (gp !== null) {
             tcp += (gp * course.unit);
@@ -427,6 +434,7 @@ export async function processBroadsheetFile(file: File): Promise<{
         name: nameColIndex !== -1 ? String(row[nameColIndex]).trim() : 'Unknown',
         matricNo: String(row[matricColIndex]).trim(),
         grades: studentGrades,
+        scores: studentScores,
         tgp: tcp,
         gpa: finalGpa,
         remark
@@ -502,7 +510,8 @@ export function mergeDocxScoresIntoData(
 
   for (const dept of docxData) {
     for (const course of dept.courses) {
-      docxCoursesMap.set(course.code, course);
+      const code = course.code.replace(/\s+/g, " ").trim().toUpperCase();
+      docxCoursesMap.set(code, { ...course, code });
     }
     for (const student of dept.students) {
       const normalizedMatric = student.matricNo.replace(/\s+/g, '').toUpperCase();
@@ -514,11 +523,13 @@ export function mergeDocxScoresIntoData(
     // Collect docx courses to add missing ones to the department
     const newCoursesMap = new Map<string, { code: string; unit: number; title?: string }>();
     for (const c of dept.courses) {
-      newCoursesMap.set(c.code, c);
+      const code = c.code.replace(/\s+/g, " ").trim().toUpperCase();
+      c.code = code;
+      newCoursesMap.set(code, c);
       
       // Merge title from docx if it exists and isn't a placeholder
-      if (docxCoursesMap.has(c.code)) {
-        const dcourse = docxCoursesMap.get(c.code)!;
+      if (docxCoursesMap.has(code)) {
+        const dcourse = docxCoursesMap.get(code)!;
         if (dcourse.title && dcourse.title !== "-") {
           c.title = dcourse.title;
         }
@@ -549,14 +560,20 @@ export function mergeDocxScoresIntoData(
           student.grades = { ...docxStudent.grades };
         }
         if (docxStudent.scores && Object.keys(docxStudent.scores).length > 0) {
-          student.scores = { ...docxStudent.scores };
+          student.scores = Object.fromEntries(
+            Object.entries(docxStudent.scores).map(([code, score]) => [
+              code.replace(/\s+/g, " ").trim().toUpperCase(),
+              score,
+            ]),
+          );
         }
         
         // Add any missing courses that this student took
         for (const code of Object.keys(student.grades)) {
-          if (!newCoursesMap.has(code) && docxCoursesMap.has(code)) {
-            newCoursesMap.set(code, docxCoursesMap.get(code)!);
-            dept.courses.push(docxCoursesMap.get(code)!);
+          const normalizedCode = code.replace(/\s+/g, " ").trim().toUpperCase();
+          if (!newCoursesMap.has(normalizedCode) && docxCoursesMap.has(normalizedCode)) {
+            newCoursesMap.set(normalizedCode, docxCoursesMap.get(normalizedCode)!);
+            dept.courses.push(docxCoursesMap.get(normalizedCode)!);
           }
         }
       }

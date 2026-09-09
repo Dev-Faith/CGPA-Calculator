@@ -2,7 +2,6 @@
 
 import * as React from "react";
 
-import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
@@ -16,22 +15,16 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import {
-  LayoutDashboardIcon,
-  ListIcon,
-  ChartBarIcon,
-  FolderIcon,
-  UsersIcon,
-  CameraIcon,
-  FileTextIcon,
   Settings2Icon,
   CircleHelpIcon,
+  BookOpenIcon,
   SearchIcon,
-  DatabaseIcon,
-  FileChartColumnIcon,
-  FileIcon,
-  CommandIcon,
+  LogOutIcon,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+import { logout } from "@/app/actions/auth";
+import { Button } from "@/components/ui/button";
 
 const data = {
   user: {
@@ -41,65 +34,14 @@ const data = {
   },
   navMain: [
     {
-      title: "Dashboard",
-      url: "#",
-      icon: <LayoutDashboardIcon />,
-    },
-    // {
-    //   title: "Lifecycle",
-    //   url: "#",
-    //   icon: (
-    //     <ListIcon
-    //     />
-    //   ),
-    // },
-  ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: <CameraIcon />,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
+      title: "Portal",
+      url: "/portal",
+      icon: <BookOpenIcon />,
     },
     {
-      title: "Proposal",
-      icon: <FileTextIcon />,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: <FileTextIcon />,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
+      title: "Student Lookup",
+      url: "/results",
+      icon: <SearchIcon />,
     },
   ],
   navSecondary: [
@@ -114,32 +56,6 @@ const data = {
       icon: <CircleHelpIcon />,
     },
   ],
-  documents: [
-    // {
-    //   name: "Data Library",
-    //   url: "#",
-    //   icon: (
-    //     <DatabaseIcon
-    //     />
-    //   ),
-    // },
-    // {
-    //   name: "Reports",
-    //   url: "#",
-    //   icon: (
-    //     <FileChartColumnIcon
-    //     />
-    //   ),
-    // },
-    // {
-    //   name: "Word Assistant",
-    //   url: "#",
-    //   icon: (
-    //     <FileIcon
-    //     />
-    //   ),
-    // },
-  ],
 };
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -149,7 +65,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               className="data-[slot=sidebar-menu-button]:p-1.5!"
-              render={<a href="#" />}
+              render={<Link href="/portal" />}
             >
               <Image
                 src="/ecotems-logo.png"
@@ -165,11 +81,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        {/* <NavDocuments items={data.documents} /> */}
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />
+        <form action={logout}>
+          <Button
+            type="submit"
+            variant="ghost"
+            className="w-full justify-start gap-2 text-slate-400 hover:text-red-400 hover:bg-red-500/5 text-sm"
+          >
+            <LogOutIcon className="w-4 h-4" />
+            Log out
+          </Button>
+        </form>
       </SidebarFooter>
     </Sidebar>
   );

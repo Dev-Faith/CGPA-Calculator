@@ -5,11 +5,9 @@ import {
   Calculator,
   Award,
   BookOpen,
-  CheckCircle2,
   Info,
   Layers,
   Sparkles,
-  HelpCircle,
 } from "lucide-react";
 import {
   Card,
@@ -24,12 +22,12 @@ import { DEGREE_CLASS_COLORS } from "@/lib/degree-class-colors";
 const GRADES_DATA = [
   { grade: "A", score: "75% – 100%", gp: "4.00", description: "Excellent", color: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
   { grade: "AB", score: "70% – 74%", gp: "3.50", description: "Very Good", color: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30" },
-  { grade: "B", score: "65% – 69%", gp: "3.25", description: "Good", color: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" },
-  { grade: "BC", score: "60% – 64%", gp: "3.00", description: "Fairly Good", color: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-300 border-yellow-500/30" },
-  { grade: "C", score: "55% – 59%", gp: "2.75", description: "Fair", color: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30" },
-  { grade: "CD", score: "50% – 54%", gp: "2.50", description: "Marginal Pass", color: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30" },
-  { grade: "D", score: "45% – 49%", gp: "2.25", description: "Poor", color: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30" },
-  { grade: "E", score: "40% – 44%", gp: "2.00", description: "Very Poor", color: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30" },
+  { grade: "B", score: "65% – 69%", gp: "3.00", description: "Good", color: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" },
+  { grade: "BC", score: "60% – 64%", gp: "2.50", description: "Fairly Good", color: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-300 border-yellow-500/30" },
+  { grade: "C", score: "55% – 59%", gp: "2.00", description: "Fair", color: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30" },
+  { grade: "CD", score: "50% – 54%", gp: "1.50", description: "Marginal Pass", color: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30" },
+  { grade: "D", score: "45% – 49%", gp: "1.00", description: "Poor", color: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30" },
+  { grade: "E", score: "40% – 44%", gp: "0.50", description: "Very Poor", color: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30" },
   { grade: "F", score: "0% – 39%", gp: "0.00", description: "Fail", color: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30" },
 ];
 

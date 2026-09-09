@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ECOTEMS Result Portal
 
-## Getting Started
+An ND result-processing portal for a four-semester programme:
 
-First, run the development server:
+| Semester | Level |
+| --- | --- |
+| 1 | ND1 |
+| 2 | ND1 |
+| 3 | ND2 |
+| 4 | ND2 |
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Administrators can upload a broadsheet or paste a tab-separated table copied from Excel/Google Sheets. Every import is recalculated and validated on the server, saved as a private draft, reviewed, and explicitly published. Re-importing a semester creates a new version; it does not delete the previous one.
+
+Students can use `/results` to view only published results and their cumulative GPA.
+
+## Run locally
+
+1. Copy `.env.example` to `.env.local` and provide a secure `SESSION_SECRET`, admin username, and bcrypt password hash.
+2. Install packages with `npm install`.
+3. Create/update the local database with `npm run db:migrate`.
+4. Start the app with `npm run dev`.
+
+The checked-in development configuration uses SQLite at `prisma/portal.db`. The local Prisma schema is [prisma/schema.prisma](prisma/schema.prisma). For Neon, use the PostgreSQL schema at [prisma/schema.postgresql.prisma](prisma/schema.postgresql.prisma), set `DATABASE_URL` to Neon’s pooled connection string, and run `npm run db:generate:neon` before building. Use `npm run db:push:neon` only for an initial empty database or a deliberate schema sync; production changes should use a reviewed PostgreSQL migration before accepting live records.
+
+The generated Prisma client is provider-specific. After switching between local SQLite and Neon, regenerate with the matching command before starting or building the app. The two schema files intentionally share the same models so local development remains offline while production uses durable PostgreSQL storage.
+
+## Pasting results
+
+Copy a tab-separated grid with `Matric No`, `Name`, and course headings that include their unit:
+
+```text
+Matric No	Name	CSC 101 (3)	MTH 111 (3)
+ECT25/COM/001	Ada Obi	A	BC
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Accepted grades are `A`, `AB`, `B`, `BC`, `C`, `CD`, `D`, `E`, `F`, `ABS`, `NR`, or a numeric score from 0 to 100. GPA, total grade points, and remarks are calculated by the server.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Result lifecycle
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Save the reviewed import as a draft.
+2. Review the department, course columns, student count, and grades in the Result Portal.
+3. Publish the draft when it is correct.
+4. If corrections are needed, create a new import. Publishing it archives the previous public version for that department, session, and semester.

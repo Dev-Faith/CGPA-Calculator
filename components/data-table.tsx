@@ -13,7 +13,6 @@ import {
   DownloadIcon,
   EllipsisVerticalIcon,
   EyeIcon,
-  FileTextIcon,
   Loader2Icon,
 } from "lucide-react";
 
@@ -80,6 +79,7 @@ export type DepartmentData = {
   name: string;
   session?: string;
   semester?: string;
+  level?: string;
   courses: { code: string; unit: number }[];
   students: StudentResult[];
 };
@@ -153,14 +153,6 @@ export function DataTable({
   const [activeDeptName, setActiveDeptName] = React.useState<string>(
     departments?.[0]?.name || "",
   );
-
-  React.useEffect(() => {
-    if (departments.length > 0) {
-      if (!departments.some((d) => d.name === activeDeptName)) {
-        setActiveDeptName(departments[0].name);
-      }
-    }
-  }, [departments, activeDeptName]);
 
   const activeDepartment = React.useMemo(() => {
     return (
@@ -315,7 +307,7 @@ export function DataTable({
       // 4. Session, Semester & Level
       const sessionStr = activeDepartment.session ? `SESSION: ${activeDepartment.session}` : "SESSION: N/A";
       const semesterStr = activeDepartment.semester ? `SEMESTER: ${activeDepartment.semester}` : "SEMESTER: N/A";
-      const levelStr = (activeDepartment as any).level ? `LEVEL: ${(activeDepartment as any).level}` : "LEVEL: N/A";
+      const levelStr = activeDepartment.level ? `LEVEL: ${activeDepartment.level}` : "LEVEL: N/A";
 
       worksheet.mergeCells('C4:M4');
       worksheet.getCell('C4').value = sessionStr;
@@ -382,7 +374,6 @@ export function DataTable({
       ];
 
       // 8. Add Data (Starting Row 9)
-      const dataStartingRow = headerRowIndex + 2;
       filteredData.forEach((student, index) => {
         const rowData = [];
         if (visibleColumns.sn) rowData.push(index + 1);
@@ -467,14 +458,14 @@ export function DataTable({
   ) => {
     if (!activeDepartment) return;
 
-    const pdfStudent = { ...row } as any;
+    const pdfStudent = { ...row };
 
     try {
       if (action === "view") {
         toast.loading(`Opening transcript for ${row.matricNo}...`, {
           id: "student-transcript",
         });
-        const success = await viewStudentTranscriptPdf(pdfStudent, activeDepartment as any);
+        const success = await viewStudentTranscriptPdf(pdfStudent, activeDepartment);
         if (success) {
           toast.success(`Transcript opened.`, { id: "student-transcript" });
         } else {
@@ -486,7 +477,7 @@ export function DataTable({
       toast.loading(`Downloading transcript for ${row.matricNo}...`, {
         id: "student-transcript",
       });
-      await downloadStudentTranscriptPdf(pdfStudent, activeDepartment as any);
+      await downloadStudentTranscriptPdf(pdfStudent, activeDepartment);
       toast.success(`Transcript downloaded for ${row.matricNo}.`, {
         id: "student-transcript",
       });

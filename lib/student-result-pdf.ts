@@ -6,7 +6,6 @@ import {
   buildVerificationUrl,
   createVerificationPayload,
   VERIFICATION_BASE_URL,
-  type VerificationPayload,
 } from "@/lib/student-result-verification";
 
 export type ResultLetterStudent = {
@@ -21,6 +20,7 @@ export type ResultLetterDepartment = {
   name: string;
   session?: string;
   semester?: string;
+  level?: string;
   courses: { code: string; unit: number; title?: string }[];
 };
 
@@ -149,32 +149,55 @@ async function createResultPdf(
   const bodyStart = 92 + yOffset;
   const lineHeight = 10;
 
-  const firstLinePrefix = "This is to notify that ";
-  const firstLineSuffix = ` (${student.matricNo})`;
   const programmeName = formatProgrammeName(department.name);
-  const bodyLines = pdf.splitTextToSize(
-    `has completed the prescribed course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Science (ECOTEMS), has been conferred the National Diploma (ND) in ${programmeName} with ${student.remark} classification, effective from ${issuedOn}.`,
-    contentWidth,
-  );
+  const statement = `This is to notify that ${student.name.toUpperCase()} (${student.matricNo}) has completed the prescribed course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Science (ECOTEMS), has been conferred the National Diploma (ND) in ${programmeName} with ${student.remark} classification, effective from ${issuedOn}.`;
+  const nameStart = statement.indexOf(student.name.toUpperCase());
+  const nameEnd = nameStart + student.name.length;
+  const words = statement.split(/\s+/).map((text) => {
+    const start = statement.indexOf(text);
+    const bold = (start >= nameStart && start < nameEnd) || /^(National|Diploma|\(ND\)|DISTINCTION|UPPER|CREDIT|LOWER|PASS|FAIL)/i.test(text);
+    pdf.setFont("times", bold ? "bold" : "normal");
+    return { text, bold, width: pdf.getTextWidth(text) };
+  });
+  const spaceWidth = (() => {
+    pdf.setFont("times", "normal");
+    return pdf.getTextWidth(" ");
+  })();
+  const lines: typeof words[] = [];
+  let current: typeof words = [];
+  let currentWidth = 0;
 
-  pdf.setFont("times", "normal");
-  pdf.text(firstLinePrefix, contentX, bodyStart);
-  const prefixWidth = pdf.getTextWidth(firstLinePrefix);
-
-  pdf.setFont("times", "bold");
-  pdf.text(student.name.toUpperCase(), contentX + prefixWidth, bodyStart);
-  const nameWidth = pdf.getTextWidth(student.name.toUpperCase());
-
-  pdf.setFont("times", "normal");
-  pdf.text(firstLineSuffix, contentX + prefixWidth + nameWidth, bodyStart);
-
-  let y = bodyStart + lineHeight;
-  for (const line of bodyLines) {
-    const isImportant = /National Diploma \(ND\)|Upper Credit|Lower Credit|Distinction|Pass|Fail/i.test(line);
-    pdf.setFont("times", isImportant ? "bold" : "normal");
-    pdf.text(line, contentX, y);
-    y += lineHeight;
+  for (const word of words) {
+    const nextWidth = current.length === 0 ? word.width : currentWidth + spaceWidth + word.width;
+    if (current.length > 0 && nextWidth > contentWidth) {
+      lines.push(current);
+      current = [word];
+      currentWidth = word.width;
+    } else {
+      current.push(word);
+      currentWidth = nextWidth;
+    }
   }
+  if (current.length) lines.push(current);
+
+  const drawLine = (line: typeof words, x: number, y: number, justify: boolean) => {
+    const wordWidth = line.reduce((total, word) => total + word.width, 0);
+    const gap = justify && line.length > 1
+      ? (contentWidth - wordWidth) / (line.length - 1)
+      : spaceWidth;
+    let cursor = x;
+    line.forEach((word, index) => {
+      pdf.setFont("times", word.bold ? "bold" : "normal");
+      pdf.text(word.text, cursor, y);
+      cursor += word.width + (index < line.length - 1 ? gap : 0);
+    });
+  };
+
+  let y = bodyStart;
+  lines.forEach((line, index) => {
+    drawLine(line, contentX, y, index < lines.length - 1);
+    y += lineHeight;
+  });
 
   pdf.setFont("times", "normal");
   y += 8;
