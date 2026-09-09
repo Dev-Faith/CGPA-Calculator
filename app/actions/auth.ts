@@ -19,8 +19,8 @@ export async function login(
     return { error: "Username and password are required." };
   }
 
-  const envUsername = process.env.ADMIN_USERNAME;
-  const envHash = process.env.ADMIN_PASSWORD_HASH;
+  const envUsername = process.env.ADMIN_USERNAME?.trim();
+  const envHash = process.env.ADMIN_PASSWORD_HASH?.replace(/\\\$/g, "$").trim();
 
   if (!envUsername || !envHash) {
     return { error: "Server misconfiguration: admin credentials not set." };
