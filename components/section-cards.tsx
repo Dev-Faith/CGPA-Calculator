@@ -11,29 +11,44 @@ import { TrendingUpIcon, TrendingDownIcon } from "lucide-react";
 import { DepartmentData } from "./data-table"; // Ensure this is imported
 
 export function SectionCards({ tableData }: { tableData: DepartmentData[] }) {
-  // 1. Flatten all students from all departments into a single array for calculations
+  // 1. Group students by matricNo across all departments/semesters
   const allStudents = tableData?.flatMap((dept) => dept.students) || [];
+  
+  const studentMap = new Map<string, number[]>();
+  for (const student of allStudents) {
+    const matric = student.matricNo.trim().toUpperCase();
+    const gpa = Number(student.gpa);
+    if (!matric || isNaN(gpa)) continue;
+    
+    if (!studentMap.has(matric)) {
+      studentMap.set(matric, []);
+    }
+    studentMap.get(matric)!.push(gpa);
+  }
 
-  // 2. Calculate the specific metrics safely
-  const totalStudentsProcessed = allStudents.length;
+  // Calculate each unique student's average GPA across imported semesters
+  const uniqueStudents = Array.from(studentMap.entries()).map(([matric, gpas]) => {
+    const avgGpa = gpas.reduce((sum, gpa) => sum + gpa, 0) / gpas.length;
+    return { matric, avgGpa };
+  });
 
-  const distinctionCandidates = allStudents.filter(
-    (student) => Number(student.gpa) >= 3.5,
+  // 2. Calculate the specific metrics safely based on unique students
+  const totalStudentsProcessed = uniqueStudents.length;
+
+  const distinctionCandidates = uniqueStudents.filter(
+    (student) => student.avgGpa >= 3.5,
   ).length;
 
-  const probationCandidates = allStudents.filter(
-    (student) => Number(student.gpa) < 2.0,
+  const probationCandidates = uniqueStudents.filter(
+    (student) => student.avgGpa < 2.0,
   ).length;
 
-  // 3. Calculate Average safely (filtering out #REF! or empty strings)
-  const validGpas = allStudents
-    .map((s) => Number(s.gpa))
-    .filter((gpa) => !isNaN(gpa));
-
+  // 3. Calculate Average Cohort CGPA based on unique students
   const averageGpa =
-    validGpas.length > 0
+    uniqueStudents.length > 0
       ? (
-          validGpas.reduce((acc, curr) => acc + curr, 0) / validGpas.length
+          uniqueStudents.reduce((acc, curr) => acc + curr.avgGpa, 0) /
+          uniqueStudents.length
         ).toFixed(2)
       : "0.00";
 

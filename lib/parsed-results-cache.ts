@@ -1,6 +1,6 @@
-import { formatDepartmentDisplayName, type DepartmentData } from "@/lib/cgpa-calculator";
+import type { SemesterImport } from "@/lib/excel-score-parser";
 
-const STORAGE_KEY = "cgpa-calculator:parsed-results:v2";
+const STORAGE_KEY = "cgpa-calculator:parsed-results:v3";
 const CONTEXT_STORAGE_KEY = "cgpa-calculator:import-context:v2";
 
 export type ParsedResultsContext = {
@@ -8,24 +8,20 @@ export type ParsedResultsContext = {
   semester: number;
 };
 
-export function loadParsedResults(): DepartmentData[] {
+export function loadParsedResults(): SemesterImport[] {
   if (typeof window === "undefined") return [];
 
   try {
     const storedResults = window.sessionStorage.getItem(STORAGE_KEY);
     const parsedResults = storedResults ? JSON.parse(storedResults) : [];
     if (!Array.isArray(parsedResults)) return [];
-
-    return parsedResults.map((dept) => ({
-      ...dept,
-      name: formatDepartmentDisplayName(dept.name),
-    }));
+    return parsedResults;
   } catch {
     return [];
   }
 }
 
-export function saveParsedResults(results: DepartmentData[]) {
+export function saveParsedResults(results: SemesterImport[]) {
   window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(results));
 }
 

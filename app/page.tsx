@@ -1,13 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-  CheckCircle2Icon,
-  ClipboardPasteIcon,
   DatabaseIcon,
   AlertCircleIcon,
-  FileUpIcon,
   RefreshCcwIcon,
 } from "lucide-react";
 
@@ -35,14 +32,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { FileUploadDropzone } from "@/components/dropzone";
 import type { DepartmentData } from "@/lib/cgpa-calculator";
-import {
-  mergeDocxScoresIntoData,
-  processBroadsheetFile,
-} from "@/lib/cgpa-calculator";
-import { processDocxFile } from "@/lib/docx-parser";
+import type { SemesterImport } from "@/lib/excel-score-parser";
+import { processScoreSheetFile } from "@/lib/excel-score-parser";
 import {
   clearParsedResults,
   loadParsedResultsContext,
@@ -51,9 +44,6 @@ import {
   saveParsedResultsContext,
 } from "@/lib/parsed-results-cache";
 import { levelForSemester, semesterLabel } from "@/lib/academic";
-import { parsePastedBroadsheet } from "@/lib/paste-results";
-
-type ImportSource = "UPLOAD" | "PASTE";
 
 type SaveValidationError = {
   title: string;
@@ -129,14 +119,13 @@ export default function Page() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveValidationError, setSaveValidationError] =
     useState<SaveValidationError | null>(null);
-  const [tableData, setTableData] = useState<DepartmentData[]>([]);
+
+  // The primary data state: an array of semester imports (one per Excel tab)
+  const [semesterImports, setSemesterImports] = useState<SemesterImport[]>([]);
+
+  // Academic context card (retained as fallback for missing metadata)
   const [sessionLabel, setSessionLabel] = useState("");
   const [semester, setSemester] = useState(1);
-  const [showPastePanel, setShowPastePanel] = useState(false);
-  const [pasteText, setPasteText] = useState("");
-  const [pasteDepartment, setPasteDepartment] = useState("");
-  const [importSource, setImportSource] = useState<ImportSource>("UPLOAD");
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const cachedResults = loadParsedResults();
@@ -147,20 +136,37 @@ export default function Page() {
         setSemester(cachedContext.semester);
       }
       if (cachedResults.length) {
-        setTableData(cachedResults);
+        setSemesterImports(cachedResults);
         setIsProcessed(true);
       }
     });
   }, []);
 
-  const studentCount = useMemo(
-    () =>
-      tableData.reduce(
-        (total, department) => total + department.students.length,
-        0,
-      ),
-    [tableData],
+  // Derive DepartmentData[] for child components that still expect it
+  const tableData = useMemo(
+    () => semesterImports.map((imp) => imp.department),
+    [semesterImports],
   );
+
+  const [activeDeptIndex, setActiveDeptIndex] = useState(0);
+
+  const studentCount = useMemo(() => {
+    const uniqueMatrics = new Set<string>();
+    for (const department of tableData) {
+      for (const student of department.students) {
+        if (student.matricNo) {
+          uniqueMatrics.add(student.matricNo.trim().toUpperCase());
+        }
+      }
+    }
+    return uniqueMatrics.size;
+  }, [tableData]);
+
+  // The active subset for the Chart and Cards (synchronized with the Table)
+  const activeTableData = useMemo(() => {
+    return tableData[activeDeptIndex] ? [tableData[activeDeptIndex]] : [];
+  }, [tableData, activeDeptIndex]);
+
   const sessionIsValid = useMemo(() => {
     const match = sessionLabel.trim().match(/^(20\d{2})\s*\/\s*(20\d{2})$/);
     return Boolean(match && Number(match[2]) === Number(match[1]) + 1);
@@ -168,46 +174,16 @@ export default function Page() {
 
   const importContextReady = sessionIsValid && semester >= 1 && semester <= 4;
 
-  const acceptData = (data: DepartmentData[], source: ImportSource) => {
+  const acceptData = (data: SemesterImport[]) => {
     if (
       !data.length ||
-      data.every((department) => department.students.length === 0)
+      data.every((imp) => imp.department.students.length === 0)
     ) {
       throw new Error("No student results were found in this import.");
     }
-    setTableData(data);
+    setSemesterImports(data);
     saveParsedResults(data);
-    setImportSource(source);
     setIsProcessed(true);
-    setShowPastePanel(false);
-  };
-
-  const handleMergeClick = () => fileInputRef.current?.click();
-
-  const handleMergeFileChange = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".docx")) {
-      toast.error("Select a DOCX result slip to merge.");
-      return;
-    }
-
-    setIsProcessing(true);
-    toast.loading(`Merging ${file.name}…`, { id: "merge" });
-    try {
-      const { parsedData } = await processDocxFile(file);
-      const merged = mergeDocxScoresIntoData(tableData, parsedData);
-      acceptData(merged, importSource);
-      toast.success("DOCX scores merged into the preview.", { id: "merge" });
-    } catch (error) {
-      console.error(error);
-      toast.error("The DOCX file could not be merged.", { id: "merge" });
-    } finally {
-      setIsProcessing(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
   };
 
   const handleFileUpload = async (file: File) => {
@@ -220,11 +196,22 @@ export default function Page() {
     setIsProcessing(true);
     toast.loading(`Reading ${file.name}…`, { id: "parse" });
     try {
-      const parsedData = file.name.toLowerCase().endsWith(".docx")
-        ? (await processDocxFile(file)).parsedData
-        : (await processBroadsheetFile(file)).parsedData;
-      acceptData(parsedData, "UPLOAD");
-      toast.success("Results are ready for review.", { id: "parse" });
+      let parsed = await processScoreSheetFile(file);
+
+      // Use the academic context card values as fallback for any tabs where
+      // the parser couldn't extract session or semester.
+      parsed = parsed.map((imp) => ({
+        ...imp,
+        sessionLabel: imp.sessionLabel || sessionLabel.trim(),
+        semester: imp.semester || semester,
+      }));
+
+      acceptData(parsed);
+      const semCount = parsed.length;
+      toast.success(
+        `${semCount} semester${semCount === 1 ? "" : "s"} imported — results are ready for review.`,
+        { id: "parse" },
+      );
     } catch (error) {
       console.error(error);
       toast.error(
@@ -238,95 +225,99 @@ export default function Page() {
     }
   };
 
-  const handlePaste = () => {
-    if (!importContextReady) {
-      toast.error(
-        "Select a valid academic session and semester before importing.",
-      );
-      return;
-    }
-    try {
-      const department = parsePastedBroadsheet(pasteText, pasteDepartment);
-      acceptData([department], "PASTE");
-      toast.success(
-        `${department.students.length} student records are ready for review.`,
-      );
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "The pasted table is invalid.",
-      );
-    }
-  };
-
   const handleSave = async () => {
-    if (!importContextReady) {
-      toast.error("Use a valid academic session and semester before saving.");
-      return;
-    }
-    if (!tableData.length) {
+    if (!semesterImports.length) {
       toast.error("There are no calculated results to save.");
       return;
     }
+
+    // Validate that every semester import has a valid session label
+    for (const imp of semesterImports) {
+      const label = imp.sessionLabel?.trim();
+      if (!label) {
+        toast.error(
+          `A semester tab is missing its academic session. Set the session in the academic context card and try again.`,
+        );
+        return;
+      }
+    }
+
     setIsSaving(true);
     setSaveValidationError(null);
-    toast.loading("Creating draft import…", { id: "save" });
+    toast.loading("Creating draft imports…", { id: "save" });
+
+    let savedCount = 0;
+
     try {
-      const importPayload = {
-        departments: tableData.map((department) => ({
-          name: department.name,
-          courses: department.courses.map((course) => ({
-            code: course.code,
-            title: course.title,
-            unit: Number(course.unit),
-          })),
-          students: department.students.map((student) => ({
-            name: student.name,
-            matricNo: student.matricNo,
-            grades: Object.fromEntries(
-              Object.entries(student.grades).map(([code, grade]) => [
-                code,
-                grade === null || grade === undefined ? "" : grade,
-              ]),
-            ),
-            scores: Object.fromEntries(
-              Object.entries(student.scores ?? {}).map(([code, score]) => [
-                code,
-                score,
-              ]),
-            ),
-            tgp: Number(student.tgp),
-            gpa: Number(student.gpa),
-            remark: student.remark,
-          })),
-        })),
-        sessionLabel,
-        semester,
-        source: importSource,
-      };
-      const response = await fetch("/api/results", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(importPayload),
-      });
-      const responseBody = (await response.json()) as {
-        error?: string;
-        details?: { path: string; message: string }[];
-        imports?: { id: number }[];
-      };
-      if (!response.ok) {
-        const detail = responseBody.details?.[0];
-        const validationError = formatSaveValidationError(
-          detail,
-          responseBody.error,
-          tableData,
-        );
-        setSaveValidationError(validationError);
-        toast.error(validationError.title, { id: "save" });
-        return;
+      for (const imp of semesterImports) {
+        const importPayload = {
+          departments: [
+            {
+              name: imp.department.name,
+              courses: imp.department.courses.map((course) => ({
+                code: course.code,
+                title: course.title,
+                unit: Number(course.unit),
+              })),
+              students: imp.department.students.map((student) => ({
+                name: student.name,
+                matricNo: student.matricNo,
+                grades: Object.fromEntries(
+                  Object.entries(student.grades).map(([code, grade]) => [
+                    code,
+                    grade === null || grade === undefined ? "" : grade,
+                  ]),
+                ),
+                scores: Object.fromEntries(
+                  Object.entries(student.scores ?? {}).map(([code, score]) => [
+                    code,
+                    score,
+                  ]),
+                ),
+                tgp: Number(student.tgp),
+                gpa: Number(student.gpa),
+                remark: student.remark,
+              })),
+            },
+          ],
+          sessionLabel: imp.sessionLabel,
+          semester: imp.semester,
+          source: "UPLOAD" as const,
+        };
+
+        const response = await fetch("/api/results", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(importPayload),
+        });
+        const responseBody = (await response.json()) as {
+          error?: string;
+          details?: { path: string; message: string }[];
+          imports?: { id: number }[];
+        };
+        if (!response.ok) {
+          const detail = responseBody.details?.[0];
+          const validationError = formatSaveValidationError(
+            detail,
+            responseBody.error,
+            [imp.department],
+          );
+          setSaveValidationError({
+            ...validationError,
+            title: `${validationError.title} (${imp.sessionLabel} Sem ${imp.semester})`,
+          });
+          toast.error(
+            `${validationError.title} — ${imp.sessionLabel} Semester ${imp.semester}`,
+            { id: "save" },
+          );
+          return;
+        }
+
+        savedCount++;
       }
 
       toast.success(
-        "Draft saved. Review it in the Result Portal, then publish when ready.",
+        `${savedCount} semester draft${savedCount === 1 ? "" : "s"} saved. Review in the Result Portal, then publish when ready.`,
         {
           id: "save",
           action: {
@@ -353,13 +344,18 @@ export default function Page() {
 
   const reset = () => {
     clearParsedResults();
-    setTableData([]);
+    setSemesterImports([]);
     setIsProcessed(false);
     setSaveValidationError(null);
-    setPasteText("");
-    setPasteDepartment("");
-    setImportSource("UPLOAD");
   };
+
+  // Summary of unique sessions detected across all tabs
+  const detectedSessions = useMemo(() => {
+    const sessions = new Set(
+      semesterImports.map((imp) => imp.sessionLabel).filter(Boolean),
+    );
+    return Array.from(sessions);
+  }, [semesterImports]);
 
   return (
     <SidebarProvider
@@ -384,26 +380,19 @@ export default function Page() {
                         Review before publishing
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {studentCount} students across {tableData.length}{" "}
-                        department{tableData.length === 1 ? "" : "s"}. Check the
-                        records below, then create a private draft.
+                        {studentCount} students across{" "}
+                        {semesterImports.length} semester
+                        {semesterImports.length === 1 ? "" : "s"}.
+                        {detectedSessions.length > 0 && (
+                          <>
+                            {" "}
+                            Sessions: {detectedSessions.join(", ")}.
+                          </>
+                        )}{" "}
+                        Check the records below, then create a private draft.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        onClick={handleMergeClick}
-                        variant="outline"
-                        disabled={isProcessing}
-                      >
-                        <FileUpIcon className="mr-2 size-4" /> Merge DOCX
-                      </Button>
-                      <input
-                        ref={fileInputRef}
-                        className="hidden"
-                        type="file"
-                        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        onChange={handleMergeFileChange}
-                      />
                       <Button onClick={reset} variant="outline">
                         <RefreshCcwIcon className="mr-2 size-4" /> New import
                       </Button>
@@ -422,7 +411,8 @@ export default function Page() {
                     <div>
                       <p className="font-medium">Private draft</p>
                       <p className="text-muted-foreground">
-                        {sessionLabel.trim()} · {semesterLabel(semester)} ·{" "}
+                        {semesterImports.length} semester
+                        {semesterImports.length === 1 ? "" : "s"} ·{" "}
                         {studentCount} students
                       </p>
                     </div>
@@ -451,13 +441,17 @@ export default function Page() {
                 </section>
 
                 <div className="review-stagger review-delay-1">
-                  <SectionCards tableData={tableData} />
+                  <SectionCards tableData={activeTableData} />
                 </div>
                 <div className="review-stagger review-delay-2 px-4 lg:px-6">
-                  <ChartBar tableData={tableData} />
+                  <ChartBar tableData={activeTableData} />
                 </div>
                 <div className="review-stagger review-delay-3">
-                  <DataTable departments={tableData} />
+                  <DataTable 
+                    departments={tableData} 
+                    activeDeptIndex={activeDeptIndex}
+                    onActiveDeptIndexChange={setActiveDeptIndex}
+                  />
                 </div>
                 <div className="review-stagger review-delay-4">
                   <CalculationSummary />
@@ -470,12 +464,12 @@ export default function Page() {
                     New result import
                   </p>
                   <h2 className="mt-1 text-2xl font-semibold tracking-tight">
-                    Prepare a semester result for review
+                    Upload a department&apos;s score sheet
                   </h2>
                   <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                    Set the academic context first, import one department&apos;s
-                    broadsheet, then review the calculated results before saving
-                    a private draft.
+                    Set the academic context, then upload the Excel file
+                    containing the student scores. The file can contain a single semester, two semesters, or up to four semesters (each on a separate tab). Grades, GPA,
+                    and remarks are generated automatically.
                   </p>
                 </div>
                 <Card>
@@ -490,7 +484,8 @@ export default function Page() {
                         </CardTitle>
                         <CardDescription>
                           Semester automatically determines the programme level:
-                          1–2 is ND1; 3–4 is ND2.
+                          1–2 is ND1; 3–4 is ND2. These values are used as
+                          fallback if the Excel file is missing session info.
                         </CardDescription>
                       </div>
                     </div>
@@ -557,7 +552,7 @@ export default function Page() {
                     >
                       {sessionLabel && !sessionIsValid
                         ? "Use consecutive years, for example 2024/2025."
-                        : "This context is attached to the entire import and cannot be guessed from student rows."}
+                        : "This context is used as fallback when the Excel file doesn't contain session metadata."}
                     </p>
                   </CardContent>
                 </Card>
@@ -569,11 +564,12 @@ export default function Page() {
                       </div>
                       <div>
                         <CardTitle className="text-base">
-                          Import result data
+                          Upload score sheet
                         </CardTitle>
                         <CardDescription>
-                          Upload a broadsheet or paste a table copied directly
-                          from Excel or Google Sheets.
+                          Upload the department&apos;s Excel file containing 1 to 4
+                          semesters (separated into tabs). Grades are generated
+                          automatically from the raw scores.
                         </CardDescription>
                       </div>
                     </div>
@@ -583,80 +579,13 @@ export default function Page() {
                       onUpload={handleFileUpload}
                       isProcessing={isProcessing}
                       disabled={!importContextReady}
-                      title="Upload a semester broadsheet"
+                      title="Upload a department score sheet"
                       description={
                         importContextReady
-                          ? "Upload an Excel broadsheet or DOCX result slip. You can review the calculated result before it is saved."
+                          ? "Upload an Excel file containing up to 4 tabs (one per semester). Grades, GPA, and remarks will be calculated from the raw scores."
                           : "Complete the academic session and programme semester above to unlock import."
                       }
                     />
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <h2 className="flex items-center gap-2 font-semibold">
-                          <ClipboardPasteIcon className="size-4" /> Paste a
-                          result table instead
-                        </h2>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Use this for a clean tab-separated table without
-                          creating a file first.
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowPastePanel((open) => !open)}
-                        disabled={!importContextReady}
-                      >
-                        {showPastePanel ? "Close paste area" : "Paste results"}
-                      </Button>
-                    </div>
-                    {showPastePanel && (
-                      <div className="mt-5 grid gap-4">
-                        <div className="grid gap-1.5">
-                          <Label htmlFor="paste-department">Department</Label>
-                          <Input
-                            id="paste-department"
-                            value={pasteDepartment}
-                            onChange={(event) =>
-                              setPasteDepartment(event.target.value)
-                            }
-                            placeholder="Department of Computer Science"
-                          />
-                        </div>
-                        <div className="grid gap-1.5">
-                          <Label htmlFor="pasted-results">
-                            Tab-separated results
-                          </Label>
-                          <Textarea
-                            id="pasted-results"
-                            value={pasteText}
-                            onChange={(event) =>
-                              setPasteText(event.target.value)
-                            }
-                            rows={9}
-                            placeholder={
-                              "Matric No\tName\tCSC 101 (3)\tMTH 111 (3)\nECT25/COM/001\tAda Obi\tA\tBC"
-                            }
-                            className="resize-y font-mono text-xs"
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Required columns: <strong>Matric No</strong>,{" "}
-                          <strong>Name</strong>, and courses written like{" "}
-                          <strong>CSC 101 (3)</strong>, where 3 is the course
-                          unit.
-                        </p>
-                        <div>
-                          <Button onClick={handlePaste}>
-                            <CheckCircle2Icon className="mr-2 size-4" />{" "}
-                            Validate pasted table
-                          </Button>
-                        </div>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               </div>

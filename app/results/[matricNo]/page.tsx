@@ -20,6 +20,7 @@ import {
 } from "@/lib/student-result-pdf";
 import {
   downloadStudentTranscriptPdf,
+  downloadComprehensiveTranscriptPdf,
   type TranscriptStudent,
 } from "@/lib/student-transcript-pdf";
 
@@ -31,6 +32,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 
 type CourseGrade = {
@@ -158,6 +160,37 @@ export default function StudentTranscriptPage() {
     }
   };
 
+  const downloadComprehensive = async () => {
+    if (!student) return;
+    const job = `comprehensive-transcript`;
+    setPdfJob(job);
+    try {
+      const comprehensiveStudent = {
+        name: student.name,
+        matricNo: student.matricNo,
+        cgpa: student.cgpa,
+        cgpaRemark: student.cgpaRemark,
+        enrollments: student.enrollments.map(e => ({
+          department: e.department,
+          session: e.session,
+          semesterText: semesterLabel(e.semester),
+          level: e.level,
+          gpa: e.gpa,
+          tgp: e.tgp,
+          tcu: e.tcu,
+          remark: e.remark,
+          grades: e.grades,
+        }))
+      };
+      await downloadComprehensiveTranscriptPdf(comprehensiveStudent);
+      toast.success("Full Transcript downloaded.");
+    } catch {
+      toast.error("Could not generate the comprehensive transcript.");
+    } finally {
+      setPdfJob(null);
+    }
+  };
+
   useEffect(() => {
     if (!matricNo) return;
 
@@ -188,7 +221,11 @@ export default function StudentTranscriptPage() {
           toast.error("Failed to load the student record.");
         }
       })
-      .finally(() => setLoadedMatricNo(matricNo));
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoadedMatricNo(matricNo as string);
+        }
+      });
 
     return () => controller.abort();
   }, [matricNo]);
@@ -306,6 +343,17 @@ export default function StudentTranscriptPage() {
               </Badge>
             </div>
           </CardContent>
+          <CardFooter className="bg-muted/10 border-t px-6 py-4 flex justify-end">
+            <Button 
+              onClick={downloadComprehensive} 
+              variant="default" 
+              className="w-full sm:w-auto" 
+              disabled={pdfJob === "comprehensive-transcript"}
+            >
+              <DownloadIcon className="mr-2 size-4" />
+              {pdfJob === "comprehensive-transcript" ? "Generating..." : "Download Full Transcript"}
+            </Button>
+          </CardFooter>
         </Card>
 
         <Card>

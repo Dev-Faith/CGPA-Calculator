@@ -64,41 +64,101 @@ export function ChartBar({ tableData }: { tableData: DepartmentData[] }) {
     if (!tableData) return [];
 
     const allStudents = tableData.flatMap((d) => d.students);
+    const studentMap = new Map<string, number[]>();
+
+    for (const student of allStudents) {
+      const matric = student.matricNo.trim().toUpperCase();
+      const gpa = Number(student.gpa);
+      if (!matric || isNaN(gpa)) continue;
+
+      if (!studentMap.has(matric)) {
+        studentMap.set(matric, []);
+      }
+      studentMap.get(matric)!.push(gpa);
+    }
+
+    // Calculate each unique student's average GPA and remark
+    const uniqueRemarks: Record<string, number> = {
+      DISTINCTION: 0,
+      "UPPER CREDIT": 0,
+      "LOWER CREDIT": 0,
+      PASS: 0,
+      FAIL: 0,
+    };
+
+    for (const gpas of studentMap.values()) {
+      const avgGpa = gpas.reduce((sum, gpa) => sum + gpa, 0) / gpas.length;
+
+      if (avgGpa >= 3.5) uniqueRemarks["DISTINCTION"]++;
+      else if (avgGpa >= 3.0) uniqueRemarks["UPPER CREDIT"]++;
+      else if (avgGpa >= 2.5) uniqueRemarks["LOWER CREDIT"]++;
+      else if (avgGpa >= 2.0) uniqueRemarks["PASS"]++;
+      else uniqueRemarks["FAIL"]++;
+    }
 
     return [
       {
         class: "Distinction",
-        headcount: allStudents.filter((s) => s.remark === "DISTINCTION").length,
+        headcount: uniqueRemarks["DISTINCTION"],
         fill: DEGREE_CLASS_COLORS.DISTINCTION,
       },
       {
         class: "Upper Credit",
-        headcount: allStudents.filter((s) => s.remark === "UPPER CREDIT").length,
+        headcount: uniqueRemarks["UPPER CREDIT"],
         fill: DEGREE_CLASS_COLORS["UPPER CREDIT"],
       },
       {
         class: "Lower Credit",
-        headcount: allStudents.filter((s) => s.remark === "LOWER CREDIT").length,
+        headcount: uniqueRemarks["LOWER CREDIT"],
         fill: DEGREE_CLASS_COLORS["LOWER CREDIT"],
       },
       {
         class: "Pass",
-        headcount: allStudents.filter((s) => s.remark === "PASS").length,
+        headcount: uniqueRemarks["PASS"],
         fill: DEGREE_CLASS_COLORS.PASS,
       },
       {
         class: "Fail",
-        headcount: allStudents.filter((s) => ["FAIL", "PROBATION", "WITHDRAWAL"].includes(s.remark)).length,
+        headcount: uniqueRemarks["FAIL"],
         fill: DEGREE_CLASS_COLORS.FAIL,
       },
     ];
+  }, [tableData]);
+
+  const departmentContext = React.useMemo(() => {
+    if (!tableData || tableData.length === 0) return null;
+    const dept = tableData[0];
+    return {
+      name: dept.name,
+      semester: dept.semester && dept.semester !== "N/A" ? dept.semester : null,
+      level: dept.level && dept.level !== "N/A" ? dept.level : null,
+      session: dept.session && dept.session !== "N/A" ? dept.session : null,
+    };
   }, [tableData]);
 
   return (
     <Card className="min-h-auto w-full @container/chart:h-[300px]">
       <CardHeader>
         <CardTitle>Class of Degree Distribution</CardTitle>
-        <CardDescription>Distinction - Fail</CardDescription>
+        <CardDescription>
+          {departmentContext ? (
+            <span className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="font-medium text-foreground">{departmentContext.name}</span>
+              {(departmentContext.semester || departmentContext.level) && <span>•</span>}
+              {departmentContext.semester && <span>{departmentContext.semester}</span>}
+              {departmentContext.semester && departmentContext.level && <span>—</span>}
+              {departmentContext.level && <span>{departmentContext.level}</span>}
+              {departmentContext.session && (
+                <>
+                  <span>•</span>
+                  <span>{departmentContext.session}</span>
+                </>
+              )}
+            </span>
+          ) : (
+            "Distinction - Fail"
+          )}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig}>

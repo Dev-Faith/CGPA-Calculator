@@ -108,7 +108,11 @@ function ResultSetContent() {
           }
         }
       })
-      .finally(() => setLoadedId(id));
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoadedId(id as string);
+        }
+      });
 
     return () => controller.abort();
   }, [id]);

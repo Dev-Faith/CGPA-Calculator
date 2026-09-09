@@ -138,8 +138,12 @@ const CLASS_FILTERS: ClassFilter[] = [
 
 export function DataTable({
   departments: rawDepartments,
+  activeDeptIndex: controlledActiveDeptIndex,
+  onActiveDeptIndexChange,
 }: {
   departments: DepartmentData[];
+  activeDeptIndex?: number;
+  onActiveDeptIndexChange?: (index: number) => void;
 }) {
   // Normalize departments so dept.name always uses the authentic department name
   const departments = React.useMemo(() => {
@@ -149,16 +153,14 @@ export function DataTable({
     }));
   }, [rawDepartments]);
 
-  // Department State
-  const [activeDeptName, setActiveDeptName] = React.useState<string>(
-    departments?.[0]?.name || "",
-  );
+  // Department State — use index to disambiguate semesters with the same name
+  const [internalActiveDeptIndex, setInternalActiveDeptIndex] = React.useState<number>(0);
+  const activeDeptIndex = controlledActiveDeptIndex ?? internalActiveDeptIndex;
+  const setActiveDeptIndex = onActiveDeptIndexChange ?? setInternalActiveDeptIndex;
 
   const activeDepartment = React.useMemo(() => {
-    return (
-      departments?.find((d) => d.name === activeDeptName) || departments?.[0]
-    );
-  }, [departments, activeDeptName]);
+    return departments?.[activeDeptIndex] || departments?.[0];
+  }, [departments, activeDeptIndex]);
 
   const [activeTab, setActiveTab] = React.useState("all-students");
   const [selectedRows, setSelectedRows] = React.useState<Set<string>>(
@@ -179,13 +181,12 @@ export function DataTable({
     Record<string, boolean>
   >(() => buildVisibleColumns(departments?.[0]));
 
-  const handleDepartmentChange = (departmentName: string) => {
-    if (!departmentName) return;
+  const handleDepartmentChange = (indexStr: string) => {
+    const index = Number(indexStr);
+    if (isNaN(index) || index < 0 || index >= departments.length) return;
 
-    const nextDepartment = departments.find(
-      (dept) => dept.name === departmentName,
-    );
-    setActiveDeptName(departmentName);
+    const nextDepartment = departments[index];
+    setActiveDeptIndex(index);
     setVisibleColumns(buildVisibleColumns(nextDepartment));
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
     setSelectedRows(new Set());
@@ -518,7 +519,7 @@ export function DataTable({
                 </span>
                 <span>•</span>
                 <span>
-                  Semester: <strong className="text-foreground">{activeDepartment.semester}</strong>
+                  Level: <strong className="text-foreground">{activeDepartment.level}</strong>
                 </span>
                 <span>•</span>
                 <span>
@@ -529,21 +530,25 @@ export function DataTable({
           </div>
           {departments.length > 1 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground">Department:</span>
+              <span className="text-xs font-semibold text-muted-foreground">Semester:</span>
               <Select
-                value={activeDeptName}
+                value={String(activeDeptIndex)}
                 onValueChange={(val) => val && handleDepartmentChange(val)}
               >
                 <SelectTrigger className="min-w-[220px] max-w-[340px] h-8 text-xs bg-background font-medium truncate">
-                  <SelectValue placeholder="Select Department">
-                    {formatDepartmentDisplayName(activeDepartment?.name)}
+                  <SelectValue placeholder="Select Semester">
+                    {activeDepartment?.semester && activeDepartment.semester !== "N/A"
+                      ? `${activeDepartment.semester}${activeDepartment.session && activeDepartment.session !== "N/A" ? ` · ${activeDepartment.session}` : ""}`
+                      : formatDepartmentDisplayName(activeDepartment?.name)}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    {departments.map((dept) => (
-                      <SelectItem key={dept.name} value={dept.name}>
-                        {formatDepartmentDisplayName(dept.name)}
+                    {departments.map((dept, idx) => (
+                      <SelectItem key={idx} value={String(idx)}>
+                        {dept.semester && dept.semester !== "N/A"
+                          ? `${dept.semester}${dept.session && dept.session !== "N/A" ? ` · ${dept.session}` : ""}`
+                          : formatDepartmentDisplayName(dept.name)}
                       </SelectItem>
                     ))}
                   </SelectGroup>

@@ -29,9 +29,9 @@ export function FileUploadDropzone({
   onUpload,
   isProcessing = false,
   disabled = false,
-  accept = ".xlsx, .xls, .csv, .docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  title = "Upload Broadsheet or Result Slip",
-  description = "Drag and drop your semester's Excel file or Word DOCX result slip here to instantly generate transcripts.",
+  accept = ".xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel",
+  title = "Upload Department Score Sheet",
+  description = "Drag and drop your department's Excel score sheet to automatically generate grades and transcripts.",
   loadingText = "Processing File...",
 }: FileUploadDropzoneProps) {
   // State to track if a file is currently hovering over the dropzone

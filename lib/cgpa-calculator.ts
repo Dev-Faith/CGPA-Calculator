@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 
 // Define the exact student result interface for our UI
 export interface StudentResult {
@@ -72,13 +71,25 @@ function getGradePoint(value: string | number): number | null {
   return null;
 }
 
+export function gradeForScore(score: number): string {
+  if (score >= 75) return "A";
+  if (score >= 70) return "AB";
+  if (score >= 65) return "B";
+  if (score >= 60) return "BC";
+  if (score >= 55) return "C";
+  if (score >= 50) return "CD";
+  if (score >= 45) return "D";
+  if (score >= 40) return "E";
+  return "F";
+}
+
 
 function getRemark(cgpa: number): string {
   if (cgpa >= 3.50) return "DISTINCTION";
   if (cgpa >= 3.00) return "UPPER CREDIT";
   if (cgpa >= 2.50) return "LOWER CREDIT";
   if (cgpa >= 2.00) return "PASS";
-  return "FAIL"; 
+  return "FAIL";
 }
 
 export const KNOWN_DEPT_CODES: Record<string, string> = {
@@ -132,7 +143,7 @@ export function formatDepartmentDisplayName(name?: string): string {
   clean = clean.replace(/^(?:DEPARTMENT|DEPT\.?|PROGRAMME|PROGRAM)\s+(?:OF|IN|:)\s*/i, "").trim();
   clean = clean.replace(/^DEPARTMENT\s*:\s*/i, "").trim();
   clean = clean.replace(/,\s*ERIN\s+OSUN.*$/i, "").trim();
-  
+
   // Extract alphanumeric code like "PAD25" -> "PAD"
   const lettersOnly = clean.replace(/[^A-Za-z]/g, "").trim().toUpperCase();
   if (KNOWN_DEPT_CODES[lettersOnly]) {
@@ -169,7 +180,7 @@ export function extractDepartmentName(
 ): string {
   // 1. Scan rows before the header row for explicit "DEPARTMENT OF ..." or "DEPT OF ..."
   const scanLimit = headerRowIndex > 0 ? headerRowIndex : Math.min(rows.length, 12);
-  
+
   for (let i = 0; i < scanLimit; i++) {
     const row = rows[i];
     if (!row) continue;
@@ -250,339 +261,4 @@ export function formatProgrammeName(departmentName?: string): string {
   if (!departmentName) return "NID";
   const deptDisplay = formatDepartmentDisplayName(departmentName);
   return deptDisplay.replace(/^DEPARTMENT\s+OF\s+/i, "").trim() || "NID";
-}
-
-/**
- * Parses the uploaded broadsheet, calculates TCP/TCU/CGPA, and prepares a new workbook.
- * @param file The Excel file uploaded via the Dropzone.
- * @returns Parsed JSON structured by departments for the UI, and the updated Workbook for export.
- */
-export async function processBroadsheetFile(file: File): Promise<{ 
-  parsedData: DepartmentData[], 
-  processedWorkbook: XLSX.WorkBook 
-}> {
-  const fileBuffer = await file.arrayBuffer();
-  const workbook = XLSX.read(fileBuffer, { type: 'array' });
-  
-  const departments: DepartmentData[] = [];
-
-  for (const sheetName of workbook.SheetNames) {
-    const sheet = workbook.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as unknown as SheetCell[][];
-
-    let headerRowIndex = -1;
-    let unitRowIndex = -1;
-    let matricColIndex = -1;
-    let nameColIndex = -1;
-    let snColIndex = -1;
-    
-    let session = "N/A";
-    let semester = "N/A";
-    let level = "N/A";
-
-    // 1. Scan downwards to find Session, Semester, Header Row, and Unit Row
-    for (let i = 0; i < Math.min(rows.length, 15); i++) {
-      const row = rows[i];
-      if (!row) continue;
-      
-      const rowStr = row.join(" ").toUpperCase();
-      
-      if (rowStr.includes("SESSION:")) {
-        const sessionMatch = rowStr.match(/SESSION:\s*([0-9\/]+)/);
-        if (sessionMatch) session = sessionMatch[1];
-        
-        const semMatch = rowStr.match(/SEMESTER:\s*([A-Z0-9 ]+)/);
-        if (semMatch) semester = semMatch[1].trim();
-
-        const levelMatch = rowStr.match(/LEVEL:\s*([A-Z0-9 ]+)/);
-        if (levelMatch) level = levelMatch[1].trim();
-      }
-
-      // Find the main header row (MATRIC NO)
-      if (headerRowIndex === -1 && rowStr.includes('MATRIC NO')) {
-        headerRowIndex = i;
-        matricColIndex = row.findIndex(cell => String(cell).toUpperCase().includes('MATRIC NO'));
-        nameColIndex = row.findIndex(cell => String(cell).toUpperCase().includes('NAME'));
-        snColIndex = row.findIndex(cell => {
-            const s = String(cell).toUpperCase().trim();
-            return s === 'S/N' || s === 'SN';
-        });
-      }
-
-      // Find the explicit COURSE UNIT row
-      if (headerRowIndex !== -1 && i >= headerRowIndex && (rowStr.includes('COURSE UNIT') || rowStr.includes('CREDIT UNIT'))) {
-        unitRowIndex = i;
-        break; // We found both the header and the unit row, stop scanning
-      }
-    }
-
-    if (headerRowIndex === -1) continue; // Skip junk sheets
-
-    // Fallback: If "COURSE UNIT" label is entirely missing, assume it's right below the header
-    if (unitRowIndex === -1) {
-        unitRowIndex = headerRowIndex + 1;
-    }
-
-    const unitRow = rows[unitRowIndex] || [];
-    const courses: { colIndex: number, code: string, unit: number }[] = [];
-    let tgpCol = -1, gpaCol = -1, remarkCol = -1;
-
-    // Safely determine max columns to scan
-    let maxCols = rows[headerRowIndex].length;
-    for (let r = headerRowIndex; r <= unitRowIndex; r++) {
-        if (rows[r] && rows[r].length > maxCols) maxCols = rows[r].length;
-    }
-
-    // 2. Map dynamic columns and stitch multi-row headers together
-    for (let c = 0; c < maxCols; c++) {
-      let fullHeader = "";
-      
-      // Combine text from the Header Row all the way down to just above the Unit Row
-      for (let r = headerRowIndex; r < unitRowIndex; r++) {
-        if (rows[r] && rows[r][c]) {
-          // Replace newlines inside single cells with spaces
-          fullHeader += String(rows[r][c]).replace(/\n/g, " ").trim() + " ";
-        }
-      }
-      fullHeader = fullHeader.replace(/\s+/g, " ").toUpperCase().trim();
-
-      if (!fullHeader) continue;
-
-      if (fullHeader.includes('TGP') || fullHeader.includes('TCP')) tgpCol = c;
-      else if (fullHeader.includes('GPA') && !fullHeader.includes('CGPA')) gpaCol = c;
-      else if (fullHeader.includes('REMARK') || fullHeader.includes('REAMRK')) remarkCol = c;
-      
-      else if (c > matricColIndex) {
-         const rawUnit = unitRow[c];
-         const unitValue = Number(rawUnit);
-         
-         // STRICT SAFEGUARD: Unit must be a number between 1 and 15. 
-         // This completely blocks typos like "111" from being mapped as course units.
-         if (!isNaN(unitValue) && unitValue > 0 && unitValue <= 15) {
-            courses.push({ 
-              colIndex: c, 
-              code: fullHeader, 
-              unit: unitValue 
-            });
-         }
-      }
-    }
-
-
-    const sheetStudents: StudentResult[] = [];
-
-    // 3. Loop through actual student rows (starting immediately AFTER the Unit Row)
-    for (let i = unitRowIndex + 1; i < rows.length; i++) {
-      const row = rows[i];
-      
-      // Skip blank rows
-      if (!row || !row[matricColIndex]) continue;
-
-      const nameVal = nameColIndex !== -1 ? String(row[nameColIndex]).toUpperCase().trim() : "";
-      const matricVal = String(row[matricColIndex]).toUpperCase().trim();
-
-      // Stop parsing immediately if we hit footers or summary tables
-      if (nameVal.includes("PREPARED BY")) break;
-      if (
-        nameVal === "REMARK" || 
-        matricVal === "NO OF STUDENTS" || 
-        nameVal === "DISTINCTION" || 
-        matricVal === "UNDEFINED" || 
-        matricVal === "SUMMARY" || 
-        nameVal === "TOTAL"
-      ) {
-        break; 
-      }
-
-      let tcp = 0;
-      let tcu = 0;
-      const studentGrades: Record<string, string> = {};
-      const studentScores: Record<string, number> = {};
-
-      for (const course of courses) {
-        const gradeVal = row[course.colIndex];
-        
-        if (gradeVal !== undefined && gradeVal !== null && String(gradeVal).trim() !== '') {
-          const numericScore = Number(gradeVal);
-          if (Number.isFinite(numericScore) && numericScore >= 0 && numericScore <= 100) {
-            studentScores[course.code] = numericScore;
-          }
-          const gp = getGradePoint(typeof gradeVal === "number" ? gradeVal : String(gradeVal));
-          
-          if (gp !== null) {
-            tcp += (gp * course.unit);
-            tcu += course.unit;
-            studentGrades[course.code] = String(gradeVal).toUpperCase();
-          } else {
-             studentGrades[course.code] = String(gradeVal).toUpperCase();
-          }
-        }
-      }
-
-      const gpa = tcu > 0 ? tcp / tcu : 0;
-      const finalGpa = Number(gpa.toFixed(2));
-      const remark = getRemark(finalGpa);
-
-      // 4. INJECT DATA BACK INTO EXCEL ROW ARRAY
-      if (tgpCol !== -1) row[tgpCol] = tcp;
-      if (gpaCol !== -1) row[gpaCol] = finalGpa;
-      if (remarkCol !== -1) row[remarkCol] = remark;
-
-      // 5. Save structured data for the UI
-      sheetStudents.push({
-        sn: snColIndex !== -1 ? Number(row[snColIndex]) || sheetStudents.length + 1 : sheetStudents.length + 1,
-        name: nameColIndex !== -1 ? String(row[nameColIndex]).trim() : 'Unknown',
-        matricNo: String(row[matricColIndex]).trim(),
-        grades: studentGrades,
-        scores: studentScores,
-        tgp: tcp,
-        gpa: finalGpa,
-        remark
-      });
-    }
-
-    const sampleMatrics = sheetStudents.slice(0, 10).map((s) => s.matricNo);
-    const departmentName = extractDepartmentName(
-      rows,
-      headerRowIndex,
-      sheetName,
-      courses,
-      sampleMatrics
-    );
-
-    departments.push({
-      name: departmentName,
-      session,
-      semester,
-      level,
-      courses: courses.map(c => ({ code: c.code, unit: c.unit })),
-      students: sheetStudents
-    });
-  }
-
-  return { 
-    parsedData: departments, 
-    processedWorkbook: workbook 
-  };
-}
-
-/**
- * Triggers the browser download of the processed Excel workbook.
- */
-export function downloadProcessedSheet(workbook: XLSX.WorkBook, originalFilename: string) {
-  const newFilename = `PROCESSED_${originalFilename}`;
-  XLSX.writeFile(workbook, newFilename, { compression: true });
-}
-
-export function recalculateStudentScores(student: StudentResult, courses: { code: string; unit: number }[]) {
-  let tcp = 0;
-  let tcu = 0;
-
-  for (const course of courses) {
-    const gradeVal = student.grades[course.code];
-    if (gradeVal !== undefined && gradeVal !== null && String(gradeVal).trim() !== '') {
-      const gp = getGradePoint(gradeVal);
-      if (gp !== null) {
-        tcp += (gp * course.unit);
-        tcu += course.unit;
-      }
-    }
-  }
-
-  const gpa = tcu > 0 ? tcp / tcu : 0;
-  const finalGpa = Number(gpa.toFixed(2));
-  const remark = getRemark(finalGpa);
-
-  student.tgp = tcp;
-  student.gpa = finalGpa;
-  student.remark = remark;
-}
-
-export function mergeDocxScoresIntoData(
-  spreadsheetData: DepartmentData[],
-  docxData: DepartmentData[]
-): DepartmentData[] {
-  const mergedData: DepartmentData[] = JSON.parse(JSON.stringify(spreadsheetData));
-
-  // Build a lookup map of all DOCX students across all departments
-  const docxStudentMap = new Map<string, StudentResult>();
-  const docxCoursesMap = new Map<string, { code: string; unit: number; title?: string }>();
-
-  for (const dept of docxData) {
-    for (const course of dept.courses) {
-      const code = course.code.replace(/\s+/g, " ").trim().toUpperCase();
-      docxCoursesMap.set(code, { ...course, code });
-    }
-    for (const student of dept.students) {
-      const normalizedMatric = student.matricNo.replace(/\s+/g, '').toUpperCase();
-      docxStudentMap.set(normalizedMatric, student);
-    }
-  }
-
-  for (const dept of mergedData) {
-    // Collect docx courses to add missing ones to the department
-    const newCoursesMap = new Map<string, { code: string; unit: number; title?: string }>();
-    for (const c of dept.courses) {
-      const code = c.code.replace(/\s+/g, " ").trim().toUpperCase();
-      c.code = code;
-      newCoursesMap.set(code, c);
-      
-      // Merge title from docx if it exists and isn't a placeholder
-      if (docxCoursesMap.has(code)) {
-        const dcourse = docxCoursesMap.get(code)!;
-        if (dcourse.title && dcourse.title !== "-") {
-          c.title = dcourse.title;
-        }
-      }
-    }
-
-    // Inherit level, session, semester from DOCX if missing
-    const docxDept = docxData.find(d => d.name === dept.name) || docxData[0];
-    if (docxDept) {
-      if (docxDept.level && docxDept.level !== "N/A" && (!dept.level || dept.level === "N/A")) {
-        dept.level = docxDept.level;
-      }
-      if (docxDept.session && docxDept.session !== "N/A" && (!dept.session || dept.session === "N/A")) {
-        dept.session = docxDept.session;
-      }
-      if (docxDept.semester && docxDept.semester !== "N/A" && (!dept.semester || dept.semester === "N/A")) {
-        dept.semester = docxDept.semester;
-      }
-    }
-
-    for (const student of dept.students) {
-      const normalizedMatric = student.matricNo.replace(/\s+/g, '').toUpperCase();
-      const docxStudent = docxStudentMap.get(normalizedMatric);
-      
-      if (docxStudent) {
-        // Overwrite grades ONLY if they were successfully parsed
-        if (Object.keys(docxStudent.grades).length > 0) {
-          student.grades = { ...docxStudent.grades };
-        }
-        if (docxStudent.scores && Object.keys(docxStudent.scores).length > 0) {
-          student.scores = Object.fromEntries(
-            Object.entries(docxStudent.scores).map(([code, score]) => [
-              code.replace(/\s+/g, " ").trim().toUpperCase(),
-              score,
-            ]),
-          );
-        }
-        
-        // Add any missing courses that this student took
-        for (const code of Object.keys(student.grades)) {
-          const normalizedCode = code.replace(/\s+/g, " ").trim().toUpperCase();
-          if (!newCoursesMap.has(normalizedCode) && docxCoursesMap.has(normalizedCode)) {
-            newCoursesMap.set(normalizedCode, docxCoursesMap.get(normalizedCode)!);
-            dept.courses.push(docxCoursesMap.get(normalizedCode)!);
-          }
-        }
-      }
-      // Recalculate GPA based on the merged grades
-      recalculateStudentScores(student, Array.from(newCoursesMap.values()));
-    }
-
-    dept.courses = Array.from(newCoursesMap.values());
-  }
-
-  return mergedData;
 }
