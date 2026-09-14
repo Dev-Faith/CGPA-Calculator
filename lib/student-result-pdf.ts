@@ -112,7 +112,7 @@ async function createResultPdf(
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(12);
   pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, logoY + logoSize + 8, { align: "center" });
-  pdf.text("AND MANAGEMENT SCIENCE (ECOTEMS)", pageWidth / 2, logoY + logoSize + 14, { align: "center" });
+  pdf.text("AND MANAGEMENT SCIENCES (ECOTEMS)", pageWidth / 2, logoY + logoSize + 14, { align: "center" });
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
   pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, logoY + logoSize + 20, { align: "center" });
@@ -150,7 +150,7 @@ async function createResultPdf(
   const lineHeight = 10;
 
   const programmeName = formatProgrammeName(department.name);
-  const statement = `This is to notify that ${student.name.toUpperCase()} (${student.matricNo}) has completed the prescribed course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Science (ECOTEMS), has been conferred the National Diploma (ND) in ${programmeName} with ${student.remark} classification, effective from ${issuedOn}.`;
+  const statement = `This is to notify that ${student.name.toUpperCase()} (${student.matricNo}) has completed the prescribed course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Sciences (ECOTEMS), has been conferred the National Diploma (ND) in ${programmeName} with ${student.remark} classification, effective from ${issuedOn}.`;
   const nameStart = statement.indexOf(student.name.toUpperCase());
   const nameEnd = nameStart + student.name.length;
   const words = statement.split(/\s+/).map((text) => {
@@ -265,6 +265,49 @@ export async function downloadStudentResultPdf(
 
   link.href = url;
   link.download = filename;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/** Minimal student shape needed for the overall (comprehensive) statement of result. */
+export type ComprehensiveResultStudent = {
+  name: string;
+  matricNo: string;
+  cgpa: number;
+  cgpaRemark: string;
+  /** Department name from the most-recent / first enrolment */
+  department: string;
+};
+
+/**
+ * Generates and downloads a single "Overall Statement of Result" PDF that
+ * summarises the student's complete ND programme performance (CGPA + overall
+ * classification) instead of a single semester.
+ */
+export async function downloadComprehensiveResultPdf(
+  student: ComprehensiveResultStudent,
+) {
+  // Build the shim types that createResultPdf expects
+  const resultStudent: ResultLetterStudent = {
+    name: student.name,
+    matricNo: student.matricNo,
+    grades: {},              // not printed in the statement body
+    gpa: student.cgpa,
+    remark: student.cgpaRemark,
+  };
+  const department: ResultLetterDepartment = {
+    name: student.department,
+    courses: [],
+  };
+
+  const { blob } = await createStudentResultPdfBlob(resultStudent, department);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${fileSafe(student.matricNo)}_overall_statement_of_result.pdf`;
   link.style.display = "none";
   document.body.appendChild(link);
   link.click();

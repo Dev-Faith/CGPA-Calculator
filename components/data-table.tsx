@@ -289,7 +289,7 @@ export function DataTable({
       // 1. School Name Row
       worksheet.mergeCells('C1:M1');
       const titleRow1 = worksheet.getCell('C1');
-      titleRow1.value = "ELERINMOSA COLLEGE OF TECHNOLOGY AND MANAGEMENT SCIENCE ( ECOTEMS)";
+      titleRow1.value = "ELERINMOSA COLLEGE OF TECHNOLOGY AND MANAGEMENT SCIENCES (ECOTEMS)";
       titleRow1.font = { bold: true, size: 14, color: { argb: 'FF000000' } };
 
       // 2. School Address Row

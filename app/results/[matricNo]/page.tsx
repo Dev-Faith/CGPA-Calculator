@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import {
   downloadStudentResultPdf,
+  downloadComprehensiveResultPdf,
   type ResultLetterDepartment,
   type ResultLetterStudent,
 } from "@/lib/student-result-pdf";
@@ -155,6 +156,26 @@ export default function StudentTranscriptPage() {
       toast.success("Transcript downloaded.");
     } catch {
       toast.error("Could not generate the transcript.");
+    } finally {
+      setPdfJob(null);
+    }
+  };
+
+  const downloadOverallStatement = async () => {
+    if (!student) return;
+    const job = `overall-statement`;
+    setPdfJob(job);
+    try {
+      await downloadComprehensiveResultPdf({
+        name: student.name,
+        matricNo: student.matricNo,
+        cgpa: student.cgpa,
+        cgpaRemark: student.cgpaRemark,
+        department: student.enrollments[0]?.department ?? "",
+      });
+      toast.success("Overall Statement of Result downloaded.");
+    } catch {
+      toast.error("Could not generate the overall statement of result.");
     } finally {
       setPdfJob(null);
     }
@@ -343,7 +364,16 @@ export default function StudentTranscriptPage() {
               </Badge>
             </div>
           </CardContent>
-          <CardFooter className="bg-muted/10 border-t px-6 py-4 flex justify-end">
+          <CardFooter className="bg-muted/10 border-t px-6 py-4 flex flex-wrap justify-end gap-2">
+            <Button
+              onClick={downloadOverallStatement}
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={pdfJob !== null}
+            >
+              <DownloadIcon className="mr-2 size-4" />
+              {pdfJob === "overall-statement" ? "Generating..." : "Overall Statement of Result"}
+            </Button>
             <Button 
               onClick={downloadComprehensive} 
               variant="default" 

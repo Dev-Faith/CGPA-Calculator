@@ -82,7 +82,7 @@ async function createTranscriptPdf(
   // School name
   pdf.setFontSize(16);
   pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, logoY + logoSize + 8, { align: "center" });
-  pdf.text("AND MANAGEMENT SCIENCE ( ECOTEMS)", pageWidth / 2, logoY + logoSize + 15, { align: "center" });
+  pdf.text("AND MANAGEMENT SCIENCES (ECOTEMS)", pageWidth / 2, logoY + logoSize + 15, { align: "center" });
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
@@ -429,7 +429,7 @@ async function createComprehensiveTranscriptPdf(student: ComprehensiveStudentDat
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(16);
   pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, logoY + logoSize + 8, { align: "center" });
-  pdf.text("AND MANAGEMENT SCIENCE ( ECOTEMS)", pageWidth / 2, logoY + logoSize + 15, { align: "center" });
+  pdf.text("AND MANAGEMENT SCIENCES (ECOTEMS)", pageWidth / 2, logoY + logoSize + 15, { align: "center" });
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
   pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, logoY + logoSize + 21, { align: "center" });
