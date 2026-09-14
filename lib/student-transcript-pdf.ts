@@ -177,7 +177,7 @@ async function createTranscriptPdf(
     
     // We calculate the specific GP for this course if we can
     let gpStr = "-";
-    const gradePoints: Record<string, number> = { "A": 4.0, "AB": 3.5, "B": 3.0, "BC": 2.5, "C": 2.0, "CD": 1.5, "D": 1.0, "E": 0.5, "F": 0 };
+    const gradePoints: Record<string, number> = { "A": 4.00, "AB": 3.50, "B": 3.25, "BC": 3.00, "C": 2.75, "CD": 2.50, "D": 2.25, "E": 2.00, "F": 0.00 };
     if (gradePoints[grade] !== undefined) {
       gpStr = (gradePoints[grade] * course.unit).toFixed(2);
     }

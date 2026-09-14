@@ -193,12 +193,42 @@ export async function processScoreSheetFile(
 
     if (courses.length === 0) continue;
 
-    // ── Parse student rows ────────────────────────────────────────────
+    // ── Parse student rows & course-title legend ─────────────────────────
     const students: StudentResult[] = [];
+    // Map of COURSE CODE → title extracted from the legend table below student rows
+    const courseTitleMap: Record<string, string> = {};
+    let inCourseTitleSection = false;
+    let legendCodeCol = -1;
+    let legendTitleCol = -1;
 
     for (let i = unitRowIndex + 1; i < rows.length; i++) {
       const row = rows[i];
-      if (!row || !row[matricColIndex]) continue;
+      if (!row) continue;
+
+      // ── While inside the course-title legend section ──────────────────
+      if (inCourseTitleSection) {
+        const code = legendCodeCol !== -1
+          ? String(row[legendCodeCol] ?? "").trim().toUpperCase()
+          : "";
+        // Only process rows that look like a course code (e.g. "CHT 111")
+        if (code && /^[A-Z]{2,5}\s+\d{3}/i.test(code)) {
+          let title = legendTitleCol !== -1
+            ? String(row[legendTitleCol] ?? "").trim()
+            : "";
+          // If the designated title column is empty, search adjacent columns
+          if (!title) {
+            for (let c = legendCodeCol + 1; c < row.length; c++) {
+              const cell = String(row[c] ?? "").trim();
+              if (cell) { title = cell; break; }
+            }
+          }
+          if (title) courseTitleMap[code] = title;
+        }
+        continue;
+      }
+
+      // ── Normal student-row processing ─────────────────────────────────
+      if (!row[matricColIndex]) continue;
 
       const nameVal =
         nameColIndex !== -1 ? String(row[nameColIndex] ?? "").trim() : "";
@@ -215,6 +245,39 @@ export async function processScoreSheetFile(
         ["NO OF STUDENTS", "UNDEFINED", "SUMMARY"].includes(matricVal)
       ) {
         break;
+      }
+
+      // Detect the "Course Code | Course Title" legend table header row.
+      // Instead of breaking we switch into title-extraction mode so we can
+      // harvest course titles from the rows that follow.
+      if (
+        /^course\s*(code|title)/i.test(nameVal) ||
+        /^course\s*(code|title)/i.test(matricVal)
+      ) {
+        inCourseTitleSection = true;
+        // Identify which columns hold the code and title
+        for (let c = 0; c < row.length; c++) {
+          const cell = String(row[c] ?? "").trim();
+          if (/^course\s*code/i.test(cell)) legendCodeCol = c;
+          else if (/^course\s*title/i.test(cell)) legendTitleCol = c;
+        }
+        // Fallback: use the NAME column as code column
+        if (legendCodeCol === -1)
+          legendCodeCol = nameColIndex !== -1 ? nameColIndex : 0;
+        continue;
+      }
+
+      // A course-code pattern in the matric column (e.g. "CHT 252") means we
+      // have drifted into the legend table without a header — switch modes.
+      if (!matricVal.includes("/") && /^[A-Z]{2,5}\s+\d{3}$/i.test(matricVal)) {
+        inCourseTitleSection = true;
+        legendCodeCol = nameColIndex !== -1 ? nameColIndex : 0;
+        legendTitleCol = matricColIndex;
+        // Re-process this row as the first legend data row
+        const code = String(row[legendCodeCol] ?? "").trim().toUpperCase();
+        const title = String(row[legendTitleCol] ?? "").trim();
+        if (code && title) courseTitleMap[code] = title;
+        continue;
       }
 
       let tgp = 0;
@@ -305,7 +368,11 @@ export async function processScoreSheetFile(
         session: sessionLabel,
         semester: semesterText,
         level: levelText,
-        courses: courses.map((c) => ({ code: c.code, unit: c.unit })),
+        courses: courses.map((c) => ({
+          code: c.code,
+          unit: c.unit,
+          title: courseTitleMap[c.code] || undefined,
+        })),
         students,
       },
     });

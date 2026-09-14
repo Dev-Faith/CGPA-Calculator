@@ -4,15 +4,15 @@ export type SemesterNumber = (typeof SEMESTERS)[number];
 export type ResultStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
 export const GRADE_POINTS: Record<string, number> = {
-  A: 4,
-  AB: 3.5,
-  B: 3,
-  BC: 2.5,
-  C: 2,
-  CD: 1.5,
-  D: 1,
-  E: 0.5,
-  F: 0,
+  A: 4.00,
+  AB: 3.50,
+  B: 3.25,
+  BC: 3.00,
+  C: 2.75,
+  CD: 2.50,
+  D: 2.25,
+  E: 2.00,
+  F: 0.00,
   ABS: 0,
   NR: 0,
 };
@@ -42,15 +42,15 @@ export function gradeToPoint(value: string | number): number | null {
   if (/^\d+(\.\d+)?$/.test(raw)) {
     const score = Number(raw);
     if (score < 0 || score > 100) return null;
-    if (score >= 75) return 4;
-    if (score >= 70) return 3.5;
-    if (score >= 65) return 3;
-    if (score >= 60) return 2.5;
-    if (score >= 55) return 2;
-    if (score >= 50) return 1.5;
-    if (score >= 45) return 1;
-    if (score >= 40) return 0.5;
-    return 0;
+    if (score >= 75) return 4.00;  // A
+    if (score >= 70) return 3.50;  // AB
+    if (score >= 65) return 3.25;  // B
+    if (score >= 60) return 3.00;  // BC
+    if (score >= 55) return 2.75;  // C
+    if (score >= 50) return 2.50;  // CD
+    if (score >= 45) return 2.25;  // D
+    if (score >= 40) return 2.00;  // E
+    return 0.00;                   // F
   }
 
   return GRADE_POINTS[raw] ?? null;

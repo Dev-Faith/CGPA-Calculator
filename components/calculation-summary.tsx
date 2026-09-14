@@ -20,15 +20,15 @@ import { Badge } from "@/components/ui/badge";
 import { DEGREE_CLASS_COLORS } from "@/lib/degree-class-colors";
 
 const GRADES_DATA = [
-  { grade: "A", score: "75% – 100%", gp: "4.00", description: "Excellent", color: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
-  { grade: "AB", score: "70% – 74%", gp: "3.50", description: "Very Good", color: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30" },
-  { grade: "B", score: "65% – 69%", gp: "3.00", description: "Good", color: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" },
-  { grade: "BC", score: "60% – 64%", gp: "2.50", description: "Fairly Good", color: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-300 border-yellow-500/30" },
-  { grade: "C", score: "55% – 59%", gp: "2.00", description: "Fair", color: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30" },
-  { grade: "CD", score: "50% – 54%", gp: "1.50", description: "Marginal Pass", color: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30" },
-  { grade: "D", score: "45% – 49%", gp: "1.00", description: "Poor", color: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30" },
-  { grade: "E", score: "40% – 44%", gp: "0.50", description: "Very Poor", color: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30" },
-  { grade: "F", score: "0% – 39%", gp: "0.00", description: "Fail", color: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30" },
+  { grade: "A",  score: "75% – 100%", gp: "4.00", description: "Excellent",    color: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
+  { grade: "AB", score: "70% – 74%",  gp: "3.50", description: "Very Good",    color: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30" },
+  { grade: "B",  score: "65% – 69%",  gp: "3.25", description: "Good",         color: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" },
+  { grade: "BC", score: "60% – 64%",  gp: "3.00", description: "Fairly Good",  color: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-300 border-yellow-500/30" },
+  { grade: "C",  score: "55% – 59%",  gp: "2.75", description: "Fair",         color: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30" },
+  { grade: "CD", score: "50% – 54%",  gp: "2.50", description: "Marginal Pass",color: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30" },
+  { grade: "D",  score: "45% – 49%",  gp: "2.25", description: "Pass",         color: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30" },
+  { grade: "E",  score: "40% – 44%",  gp: "2.00", description: "Poor",         color: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30" },
+  { grade: "F",  score: "0% – 39%",   gp: "0.00", description: "Fail",         color: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30" },
 ];
 
 const REMARKS_DATA = [
@@ -89,12 +89,12 @@ export function CalculationSummary() {
                   Grading Scheme & Calculation Guide
                 </CardTitle>
                 <CardDescription className="text-xs sm:text-sm">
-                  Official NBTE (National Board for Technical Education) 4.00 Grade Point Evaluation System
+                  Official NBTE (National Board for Technical Education) Grade Point Evaluation System
                 </CardDescription>
               </div>
             </div>
             <Badge variant="outline" className="text-[11px] font-medium border-primary/20 text-primary">
-              Standard 4.00 Scale
+              9-tier · Max 4.00
             </Badge>
           </div>
         </CardHeader>
@@ -242,7 +242,7 @@ export function CalculationSummary() {
               <Info className="size-4" />
             </div>
             <div className="flex-1 leading-relaxed">
-              <span className="font-semibold text-foreground">Quick Example:</span> If a student takes <strong>COM 111 (3 Units)</strong> with grade <strong>A (4.00)</strong> and <strong>COM 112 (2 Units)</strong> with grade <strong>AB (3.50)</strong>, their Total Points are <span className="font-mono text-foreground font-semibold">(3×4.00) + (2×3.50) = 19.00 TCP</span> across <span className="font-mono text-foreground font-semibold">5 TCU</span>, yielding a GPA of <span className="font-mono text-foreground font-semibold">19.00 / 5 = 3.80</span> which is classified as <Badge className="bg-emerald-600 text-white text-[9px] px-1.5 py-0 h-4">DISTINCTION</Badge>.
+              <span className="font-semibold text-foreground">Quick Example:</span> If a student takes <strong>COM 111 (3 Units)</strong> with grade <strong>B (3.25)</strong> and <strong>COM 112 (2 Units)</strong> with grade <strong>D (2.25)</strong>, their Total Points are <span className="font-mono text-foreground font-semibold">(3×3.25) + (2×2.25) = 14.25 TCP</span> across <span className="font-mono text-foreground font-semibold">5 TCU</span>, yielding a GPA of <span className="font-mono text-foreground font-semibold">14.25 / 5 = 2.85</span> which is classified as <Badge className="bg-cyan-600 text-white text-[9px] px-1.5 py-0 h-4">LOWER CREDIT</Badge>.
             </div>
           </div>
         </CardContent>
