@@ -61,6 +61,7 @@ type ResultSetDetail = {
   publishedAt: string | null;
   department: { name: string; code: string };
   session: { label: string };
+  institution?: string;
   courses: { id: number; code: string; title: string | null; unit: number }[];
   enrollments: EnrollmentRow[];
 };

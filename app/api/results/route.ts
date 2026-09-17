@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
           id: resultSet.id,
           department: department.name,
           semester,
-          level,
+          level: resultSet.level,
           version,
           status: resultSet.status,
         });
