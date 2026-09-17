@@ -30,6 +30,7 @@ type ResultSetCard = {
   id: number;
   level: string;
   semester: number;
+  institution: string;
   version: number;
   status: string;
   source: string;
@@ -368,7 +369,7 @@ export function ResultPortal({
                     </CardTitle>
                     <CardDescription>
                       {resultSet.session.label} ·{" "}
-                      {semesterLabel(resultSet.semester)} · Version{" "}
+                      {semesterLabel(resultSet.semester, resultSet.institution)} · Version{" "}
                       {resultSet.version}
                     </CardDescription>
                   </CardHeader>

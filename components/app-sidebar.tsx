@@ -69,7 +69,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             >
               <Image
                 src="/ecotems-logo.png"
-                alt="ECOTEMS Logo"
+                alt="ECOTAMS Logo"
                 width={30}
                 height={30}
                 className="rounded-full bg-white p-0.5"

@@ -45,12 +45,16 @@ type CourseGrade = {
   score: number | null;
 };
 
-type Enrollment = {
+import { semesterLabel } from "@/lib/academic";
+import { getInstitution } from "@/lib/institution";
+
+export type Enrollment = {
   id: number;
   level: string;
   semester: number;
   session: string;
   department: string;
+  institution?: string;
   gpa: number;
   tgp: number;
   tcu: number;
@@ -82,16 +86,7 @@ function progressClass(cgpa: number) {
   return "bg-amber-500";
 }
 
-function semesterLabel(semester: number) {
-  const labels: Record<number, string> = {
-    1: "Semester 1 · ND1",
-    2: "Semester 2 · ND1",
-    3: "Semester 3 · ND2",
-    4: "Semester 4 · ND2",
-  };
-  return labels[semester] ?? `Semester ${semester}`;
-}
-
+// semesterLabel imported from @/lib/academic
 export default function StudentTranscriptPage() {
   const { matricNo } = useParams<{ matricNo: string }>();
   const [student, setStudent] = useState<StudentData | null>(null);
@@ -103,8 +98,9 @@ export default function StudentTranscriptPage() {
   const buildPdfData = (enrollment: Enrollment) => {
     const department: ResultLetterDepartment = {
       name: enrollment.department,
+      institution: enrollment.institution,
       session: enrollment.session,
-      semester: semesterLabel(enrollment.semester),
+      semester: semesterLabel(enrollment.semester, enrollment.institution),
       level: enrollment.level,
       courses: enrollment.grades.map((grade) => ({
         code: grade.courseCode,
@@ -172,6 +168,7 @@ export default function StudentTranscriptPage() {
         cgpa: student.cgpa,
         cgpaRemark: student.cgpaRemark,
         department: student.enrollments[0]?.department ?? "",
+        institution: student.enrollments[0]?.institution,
       });
       toast.success("Overall Statement of Result downloaded.");
     } catch {
@@ -193,8 +190,9 @@ export default function StudentTranscriptPage() {
         cgpaRemark: student.cgpaRemark,
         enrollments: student.enrollments.map(e => ({
           department: e.department,
+          institution: e.institution,
           session: e.session,
-          semesterText: semesterLabel(e.semester),
+          semesterText: semesterLabel(e.semester, e.institution),
           level: e.level,
           gpa: e.gpa,
           tgp: e.tgp,
@@ -424,7 +422,7 @@ export default function StudentTranscriptPage() {
             <Card key={enrollment.id}>
               <CardHeader className="grid-cols-[1fr_auto] border-b">
                 <div>
-                  <CardTitle>{semesterLabel(enrollment.semester)}</CardTitle>
+                  <CardTitle>{semesterLabel(enrollment.semester, enrollment.institution)}</CardTitle>
                   <CardDescription>
                     {enrollment.session} ·{" "}
                     {enrollment.department.replace(/^DEPARTMENT OF\s+/i, "")}
@@ -447,7 +445,7 @@ export default function StudentTranscriptPage() {
                   <table className="w-full min-w-[42.5rem] text-sm">
                     <caption className="sr-only">
                       Courses and grades for{" "}
-                      {semesterLabel(enrollment.semester)}
+                      {semesterLabel(enrollment.semester, enrollment.institution)}
                     </caption>
                     <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
                       <tr>
@@ -559,8 +557,9 @@ export default function StudentTranscriptPage() {
                 <p className="font-medium">Cumulative GPA</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Based on {student.semesterCount} published semester
-                  {student.semesterCount === 1 ? "" : "s"} in the four-semester
-                  ND programme.
+                  {student.semesterCount === 1 ? "" : "s"} in the four-semester{" "}
+                  {getInstitution(student.enrollments[0]?.institution).diplomaAbbr}{" "}
+                  programme.
                 </p>
               </div>
             </div>

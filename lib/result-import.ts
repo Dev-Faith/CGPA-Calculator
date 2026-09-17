@@ -31,6 +31,7 @@ const studentSchema = z.object({
 const departmentSchema = z
   .object({
     name: z.string().trim().min(2).max(160),
+    institution: z.string().optional(),
     courses: z.array(courseSchema).min(1).max(60),
     students: z.array(studentSchema).min(1).max(3000),
   })

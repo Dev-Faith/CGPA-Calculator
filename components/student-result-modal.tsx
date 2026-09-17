@@ -21,6 +21,7 @@ import {
   VERIFICATION_BASE_URL,
 } from "@/lib/student-result-verification";
 import { formatProgrammeName } from "@/lib/cgpa-calculator";
+import { getInstitution } from "@/lib/institution";
 import {
   downloadStudentResultPdf,
   formatDate,
@@ -45,11 +46,16 @@ export function StudentResultModal({
   const [qrCode, setQrCode] = React.useState({ source: "", dataUrl: "" });
   const [isDownloading, setIsDownloading] = React.useState(false);
   const printRef = React.useRef<HTMLDivElement>(null);
+  console.log("student modal", student, "department", department);
 
   const issuedOn = React.useMemo(() => formatDate(new Date()), []);
+  const institution = React.useMemo(
+    () => getInstitution((department as { institution?: string } | null)?.institution),
+    [department]
+  );
   const reference = React.useMemo(
-    () => (student ? referenceForStudent(student) : ""),
-    [student]
+    () => (student ? referenceForStudent(student, institution.refPrefix) : ""),
+    [student, institution]
   );
 
   const verificationUrl = React.useMemo(() => {
@@ -235,10 +241,11 @@ export function StudentResultModal({
                   {student.name}
                 </span>{" "}
                 (<span className="font-mono text-sm font-semibold">{student.matricNo}</span>) has completed the prescribed
-                course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Sciences (ECOTEMS),
+                course of study and, with authority vested in the Academic Board of{" "}
+                {institution.footerText},
                 has been conferred the{" "}
                 <span className="font-bold text-slate-950">
-                  National Diploma (ND)
+                  {institution.diplomaFull} ({institution.diplomaAbbr})
                 </span>{" "}
                 in{" "}
                 <span className="font-bold text-slate-950">
@@ -287,7 +294,7 @@ export function StudentResultModal({
               <span className="flex items-center gap-1">
                 <ShieldCheckIcon className="size-3 text-emerald-600" /> Official Academic Document
               </span>
-              <span>Elerinmosa College of Technology and Management Sciences (ECOTEMS)</span>
+              <span>{institution.footerText}</span>
             </div>
           </div>
         </div>

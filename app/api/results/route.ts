@@ -105,7 +105,6 @@ export async function POST(request: NextRequest) {
   }
 
   const { departments, semester, source } = parsed.data;
-  const level = levelForSemester(semester);
 
   // Do all content validation before opening the transaction. That way a typo
   // such as an unsupported grade produces a useful 400 response rather than a
@@ -164,8 +163,9 @@ export async function POST(request: NextRequest) {
             departmentId: department.id,
             sessionId: session.id,
             semester,
-            level,
+            level: levelForSemester(semester, importedDepartment.institution || "ECOTAMS"),
             version,
+            institution: importedDepartment.institution || "ECOTAMS",
             source,
             status: "DRAFT",
           },

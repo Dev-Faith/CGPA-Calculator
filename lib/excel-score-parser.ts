@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import type { DepartmentData, StudentResult } from "@/lib/cgpa-calculator";
 import { gradeForScore, extractDepartmentName, KNOWN_DEPT_CODES } from "@/lib/cgpa-calculator";
 import { gradeToPoint, resultRemark } from "@/lib/academic";
+import { detectInstitutionFromSheet } from "@/lib/institution";
 
 type SheetCell = string | number | boolean | Date | null | undefined;
 
@@ -41,10 +42,10 @@ function parseSemesterNumber(semesterText: string, levelText: string): number {
  */
 function semesterDisplayLabel(semester: number): string {
   const labels: Record<number, string> = {
-    1: "Semester 1 · ND1",
-    2: "Semester 2 · ND1",
-    3: "Semester 3 · ND2",
-    4: "Semester 4 · ND2",
+    1: "Semester 1 · ND1/NID1",
+    2: "Semester 2 · ND1/NID1",
+    3: "Semester 3 · ND2/NID2",
+    4: "Semester 4 · ND2/NID2",
   };
   return labels[semester] ?? `Semester ${semester}`;
 }
@@ -72,6 +73,9 @@ export async function processScoreSheetFile(
       header: 1,
       defval: "",
     }) as unknown as SheetCell[][];
+
+    // ── Detect institution from the top rows before scanning for metadata ──
+    const institutionKey = detectInstitutionFromSheet(rows as (string | number | boolean | Date | null | undefined)[][], 10);
 
     // ── Locate metadata rows ──────────────────────────────────────────
     let departmentName = "";
@@ -368,6 +372,7 @@ export async function processScoreSheetFile(
         session: sessionLabel,
         semester: semesterText,
         level: levelText,
+        institution: institutionKey,
         courses: courses.map((c) => ({
           code: c.code,
           unit: c.unit,

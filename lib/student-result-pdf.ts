@@ -2,6 +2,7 @@ import QRCode from "qrcode";
 import { loadLogoDataUrl } from "@/lib/logo-loader";
 
 import { formatProgrammeName } from "@/lib/cgpa-calculator";
+import { getInstitution } from "@/lib/institution";
 import {
   buildVerificationUrl,
   createVerificationPayload,
@@ -18,6 +19,7 @@ export type ResultLetterStudent = {
 
 export type ResultLetterDepartment = {
   name: string;
+  institution?: string;
   session?: string;
   semester?: string;
   level?: string;
@@ -51,10 +53,10 @@ export function fileSafe(value: string) {
   return value.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "");
 }
 
-export function referenceForStudent(student: ResultLetterStudent) {
+export function referenceForStudent(student: ResultLetterStudent, refPrefix = "ECOTAMS/ACAD/") {
   const digits = student.matricNo.replace(/\D/g, "");
   const suffix = digits.slice(-6).padStart(6, "0");
-  return `ECOTEMS/ACAD/${suffix.slice(0, 4)}/${suffix.slice(4) || "001"}`;
+  return `${refPrefix}${suffix.slice(0, 4)}/${suffix.slice(4) || "001"}`;
 }
 
 async function createResultPdf(
@@ -67,7 +69,12 @@ async function createResultPdf(
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 16;
   const issuedOn = formatDate(new Date());
-  const reference = referenceForStudent(student);
+
+  // ── Institution identity ─────────────────────────────────────
+  const institutionKey = (department as { institution?: string }).institution;
+  console.log("createResultPdf institutionKey:", institutionKey);
+  const institution = getInstitution(institutionKey);
+  const reference = referenceForStudent(student, institution.refPrefix);
 
   const verificationPayload = createVerificationPayload(
     student,
@@ -111,11 +118,13 @@ async function createResultPdf(
   // School name text below logo
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(12);
-  pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, logoY + logoSize + 8, { align: "center" });
-  pdf.text("AND MANAGEMENT SCIENCES (ECOTEMS)", pageWidth / 2, logoY + logoSize + 14, { align: "center" });
+  pdf.text(institution.nameLine1, pageWidth / 2, logoY + logoSize + 8, { align: "center" });
+  if (institution.nameLine2) {
+    pdf.text(institution.nameLine2, pageWidth / 2, logoY + logoSize + 14, { align: "center" });
+  }
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
-  pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, logoY + logoSize + 20, { align: "center" });
+  pdf.text(institution.address, pageWidth / 2, logoY + logoSize + 20, { align: "center" });
 
   // Divider line
   pdf.setDrawColor(20, 60, 140);
@@ -150,12 +159,13 @@ async function createResultPdf(
   const lineHeight = 10;
 
   const programmeName = formatProgrammeName(department.name);
-  const statement = `This is to notify that ${student.name.toUpperCase()} (${student.matricNo}) has completed the prescribed course of study and, with authority vested in the Academic Board of Elerinmosa College of Technology and Management Sciences (ECOTEMS), has been conferred the National Diploma (ND) in ${programmeName} with ${student.remark} classification, effective from ${issuedOn}.`;
+  const statement = `This is to notify that ${student.name.toUpperCase()} (${student.matricNo}) has completed the prescribed course of study and, with authority vested in the Academic Board of ${institution.footerText}, has been conferred the ${institution.diplomaFull} (${institution.diplomaAbbr}) in ${programmeName} with ${student.remark} classification, effective from ${issuedOn}.`;
   const nameStart = statement.indexOf(student.name.toUpperCase());
   const nameEnd = nameStart + student.name.length;
+  const diplomaPattern = new RegExp(`(${institution.diplomaFull}|\\(${institution.diplomaAbbr}\\)|DISTINCTION|UPPER|CREDIT|LOWER|PASS|FAIL)`, "i");
   const words = statement.split(/\s+/).map((text) => {
     const start = statement.indexOf(text);
-    const bold = (start >= nameStart && start < nameEnd) || /^(National|Diploma|\(ND\)|DISTINCTION|UPPER|CREDIT|LOWER|PASS|FAIL)/i.test(text);
+    const bold = (start >= nameStart && start < nameEnd) || diplomaPattern.test(text);
     pdf.setFont("times", bold ? "bold" : "normal");
     return { text, bold, width: pdf.getTextWidth(text) };
   });
@@ -280,6 +290,7 @@ export type ComprehensiveResultStudent = {
   cgpaRemark: string;
   /** Department name from the most-recent / first enrolment */
   department: string;
+  institution?: string;
 };
 
 /**
@@ -300,6 +311,7 @@ export async function downloadComprehensiveResultPdf(
   };
   const department: ResultLetterDepartment = {
     name: student.department,
+    institution: student.institution,
     courses: [],
   };
 

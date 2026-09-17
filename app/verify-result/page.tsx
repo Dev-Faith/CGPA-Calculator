@@ -21,7 +21,7 @@ function renderPayload(payload: VerificationPayload) {
                   Verified result
                 </Badge>
                 <div className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                  ELERINMOSA COLLEGE OF TECHNOLOGY AND MANAGEMENT SCIENCES (ECOTEMS)
+                  ELERINMOSA COLLEGE OF TECHNOLOGY AND MANAGEMENT SCIENCES (ECOTAMS)
                 </div>
                 <CardTitle className="mt-1 text-2xl tracking-tight">
                   Office of the Registrar

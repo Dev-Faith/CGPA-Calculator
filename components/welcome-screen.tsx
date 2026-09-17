@@ -37,7 +37,7 @@ const STEPS = [
     icon: <ZapIcon className="size-6" />,
     title: "Auto-Calculate",
     description:
-      "ECOTEMS instantly computes GPA, CGPA, Total Credit Points, and classifies each student's performance.",
+      "ECOTAMS instantly computes GPA, CGPA, Total Credit Points, and classifies each student's performance.",
     color: "from-amber-500 to-orange-600",
     bg: "bg-amber-50 dark:bg-amber-950/30",
     border: "border-amber-200 dark:border-amber-800",
@@ -91,7 +91,7 @@ export function WelcomeScreen({ onUpload, isProcessing, onStartTour }: WelcomeSc
             <div className="relative size-20 md:size-24 rounded-full overflow-hidden shadow-2xl shadow-white/20 ring-4 ring-white/30">
               <Image
                 src="/ecotems-logo.png"
-                alt="ECOTEMS Logo"
+                alt="ECOTAMS Logo"
                 fill
                 className="object-contain bg-white p-1"
                 priority
@@ -99,7 +99,7 @@ export function WelcomeScreen({ onUpload, isProcessing, onStartTour }: WelcomeSc
             </div>
             <div>
               <p className="text-xs font-semibold tracking-[0.3em] uppercase text-indigo-300 mb-1">
-                ECOTEMS Academic Portal
+                ECOTAMS Academic Portal
               </p>
               <h1 className="text-2xl md:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
                 ELERINMOSA COLLEGE OF

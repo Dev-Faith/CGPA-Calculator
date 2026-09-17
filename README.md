@@ -1,4 +1,4 @@
-# ECOTEMS Result Portal
+# ECOTAMS Result Portal
 
 An ND result-processing portal for a four-semester programme:
 

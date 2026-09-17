@@ -27,6 +27,7 @@ model ResultSet {
     level        String
     semester     Int
     version      Int          @default(1)
+    institution  String       @default("ECOTAMS")
     status       String       @default("DRAFT")
     source       String       @default("UPLOAD")
     uploadedAt   DateTime     @default(now())

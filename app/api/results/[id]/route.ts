@@ -129,6 +129,9 @@ export async function PATCH(
         where: { id: target.id },
         data: { status: "ARCHIVED" },
       });
+    }, {
+      maxWait: 20_000,
+      timeout: 120_000,
     });
 
     if (!resultSet) {

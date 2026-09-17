@@ -17,6 +17,13 @@ export interface DepartmentData {
   session?: string;
   semester?: string;
   level?: string;
+  /**
+   * Institution key detected from the broadsheet header rows.
+   * "ECOTAMS" = current school name (National Diploma / ND)
+   * "EIT"     = old school name (National Innovation Diploma / NID)
+   * Defaults to "ECOTAMS" when absent.
+   */
+  institution?: string;
   courses: {
     code: string;
     unit: number;
@@ -24,6 +31,7 @@ export interface DepartmentData {
   }[];
   students: StudentResult[];
 };
+
 
 type SheetCell = string | number | boolean | Date | null | undefined;
 

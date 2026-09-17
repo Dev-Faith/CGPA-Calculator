@@ -67,6 +67,7 @@ export async function GET(
           semester: e.resultSet.semester,
           session: e.resultSet.session.label,
           department: e.resultSet.department.name,
+          institution: e.resultSet.institution,
           gpa: e.gpa,
           tgp: e.tgp,
           tcu: e.tcu,

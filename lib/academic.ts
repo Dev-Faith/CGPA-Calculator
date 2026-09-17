@@ -17,19 +17,21 @@ export const GRADE_POINTS: Record<string, number> = {
   NR: 0,
 };
 
-export function levelForSemester(semester: number): "ND1" | "ND2" {
+export function levelForSemester(semester: number, institution: string = "ECOTAMS"): string {
   if (!SEMESTERS.includes(semester as SemesterNumber)) {
     throw new Error("Semester must be a whole number from 1 to 4.");
   }
-  return semester <= 2 ? "ND1" : "ND2";
+  const prefix = institution === "EIT" ? "NID" : "ND";
+  return semester <= 2 ? `${prefix}1` : `${prefix}2`;
 }
 
-export function semesterLabel(semester: number) {
+export function semesterLabel(semester: number, institution: string = "ECOTAMS") {
+  const level = levelForSemester(semester, institution);
   const labels: Record<number, string> = {
-    1: "Semester 1 · ND1",
-    2: "Semester 2 · ND1",
-    3: "Semester 3 · ND2",
-    4: "Semester 4 · ND2",
+    1: `Semester 1 · ${level}`,
+    2: `Semester 2 · ${level}`,
+    3: `Semester 3 · ${level}`,
+    4: `Semester 4 · ${level}`,
   };
   return labels[semester] ?? `Semester ${semester}`;
 }

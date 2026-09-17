@@ -1,5 +1,5 @@
 /**
- * Loads the ECOTEMS logo from /ecotems-logo.png and returns it as a base64 data URL.
+ * Loads the ECOTAMS logo from /ecotems-logo.png and returns it as a base64 data URL.
  * Works in both browser (fetch) and can be imported anywhere client-side.
  */
 export async function loadLogoDataUrl(): Promise<string | null> {

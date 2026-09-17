@@ -17,9 +17,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ECOTEMS - CGPA Calculator & Result System",
+  title: "ECOTAMS - CGPA Calculator & Result System",
   description:
-    "Elerinmosa College of Technology and Management Sciences (ECOTEMS) - Broadsheet CGPA Calculator & Result Verification Portal",
+    "Elerinmosa College of Technology and Management Sciences (ECOTAMS) - Broadsheet CGPA Calculator & Result Verification Portal",
 };
 
 export default function RootLayout({

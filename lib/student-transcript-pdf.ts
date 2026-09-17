@@ -4,6 +4,7 @@ import type { RowInput } from "jspdf-autotable";
 import { loadLogoDataUrl } from "@/lib/logo-loader";
 
 import { formatProgrammeName } from "@/lib/cgpa-calculator";
+import { getInstitution } from "@/lib/institution";
 import {
   buildVerificationUrl,
   createVerificationPayload,
@@ -22,6 +23,8 @@ export type TranscriptStudent = ResultLetterStudent & {
   scores?: Record<string, number | string>;
 };
 
+ 
+
 async function createTranscriptPdf(
   student: TranscriptStudent,
   department: ResultLetterDepartment,
@@ -33,6 +36,8 @@ async function createTranscriptPdf(
   const margin = 16;
   const issuedOn = formatDate(new Date());
   const reference = referenceForStudent(student);
+  const institutionKey = (department as { institution?: string } | null)?.institution;
+  console.log("createStudentTranscriptPdf institutionKey:", institutionKey);
 
   const verificationPayload = createVerificationPayload(
     student,
@@ -81,12 +86,15 @@ async function createTranscriptPdf(
 
   // School name
   pdf.setFontSize(16);
-  pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, logoY + logoSize + 8, { align: "center" });
-  pdf.text("AND MANAGEMENT SCIENCES (ECOTEMS)", pageWidth / 2, logoY + logoSize + 15, { align: "center" });
+  const institution = getInstitution((department as { institution?: string }).institution);
+  pdf.text(institution.nameLine1, pageWidth / 2, logoY + logoSize + 8, { align: "center" });
+  if (institution.nameLine2) {
+    pdf.text(institution.nameLine2, pageWidth / 2, logoY + logoSize + 15, { align: "center" });
+  }
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
-  pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, logoY + logoSize + 21, { align: "center" });
+  pdf.text(institution.address, pageWidth / 2, logoY + logoSize + 21, { align: "center" });
 
   // Blue divider
   pdf.setDrawColor(20, 60, 140);
@@ -152,7 +160,6 @@ async function createTranscriptPdf(
   const levelText = department.level && department.level !== "N/A" ? department.level : "N/A";
   
   pdf.text(`SESSION: ${sessionText}`, margin, finalY);
-  pdf.text(`LEVEL: ${levelText}`, pageWidth - margin, finalY, { align: "right" });
   
   finalY += 6;
   pdf.setFont("helvetica", "normal");
@@ -341,6 +348,7 @@ export async function downloadStudentTranscriptPdf(
 
 export type ComprehensiveEnrollment = {
   department: string;
+  institution?: string;
   session: string;
   semesterText: string;
   level: string;
@@ -373,6 +381,8 @@ async function createComprehensiveTranscriptPdf(student: ComprehensiveStudentDat
   const margin = 16;
   const issuedOn = formatDate(new Date());
 
+  console.log("student enrollment", student.enrollments);
+
   // Use the standard verification payload with the first enrollment's department (for reference)
   const firstEnrollment = student.enrollments[0];
   // Extract all courses across all enrollments to accurately count them in verification
@@ -382,6 +392,7 @@ async function createComprehensiveTranscriptPdf(student: ComprehensiveStudentDat
 
   const placeholderDept: ResultLetterDepartment = {
     name: firstEnrollment?.department || "N/A",
+    institution: firstEnrollment?.institution,
     session: firstEnrollment?.session || "N/A",
     semester: "COMPREHENSIVE",
     level: firstEnrollment?.level || "N/A",
@@ -394,8 +405,14 @@ async function createComprehensiveTranscriptPdf(student: ComprehensiveStudentDat
     gpa: student.cgpa,
     remark: student.cgpaRemark,
   };
+
   
-  const reference = referenceForStudent(placeholderStudent);
+
+   const institutionKey = student.enrollments[0]?.institution;
+   console.log("createComprehensiveTranscriptPdf institutionKey:", institutionKey);
+   const institution = getInstitution(institutionKey);
+  
+  const reference = referenceForStudent(placeholderStudent, institution.refPrefix);
   const verificationPayload = createVerificationPayload(placeholderStudent, placeholderDept, issuedOn, reference);
   const verificationUrl = buildVerificationUrl(VERIFICATION_BASE_URL, verificationPayload);
   const validationCode = reference;
@@ -428,11 +445,13 @@ async function createComprehensiveTranscriptPdf(student: ComprehensiveStudentDat
 
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(16);
-  pdf.text("ELERINMOSA COLLEGE OF TECHNOLOGY", pageWidth / 2, logoY + logoSize + 8, { align: "center" });
-  pdf.text("AND MANAGEMENT SCIENCES (ECOTEMS)", pageWidth / 2, logoY + logoSize + 15, { align: "center" });
+  pdf.text(institution.nameLine1, pageWidth / 2, logoY + logoSize + 8, { align: "center" });
+  if (institution.nameLine2) {
+    pdf.text(institution.nameLine2, pageWidth / 2, logoY + logoSize + 15, { align: "center" });
+  }
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
-  pdf.text("EDE-ROAD, OKE-AWESIN, ERIN-OSUN, OSUN STATE, NIGERIA.", pageWidth / 2, logoY + logoSize + 21, { align: "center" });
+  pdf.text(institution.address, pageWidth / 2, logoY + logoSize + 21, { align: "center" });
 
   pdf.setDrawColor(20, 60, 140);
   pdf.setLineWidth(0.6);
@@ -481,7 +500,7 @@ async function createComprehensiveTranscriptPdf(student: ComprehensiveStudentDat
 
     pdf.setFontSize(11);
     pdf.setFont("helvetica", "bold");
-    const semHeader = `${enrollment.semesterText.toUpperCase()} — ${enrollment.level} (${enrollment.session})`;
+    const semHeader = `${enrollment.semesterText.toUpperCase()} (${enrollment.session})`;
     pdf.text(semHeader, margin, finalY);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(9);

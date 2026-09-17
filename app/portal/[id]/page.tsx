@@ -254,7 +254,7 @@ function ResultSetContent() {
               {data.department.name.replace(/^DEPARTMENT OF\s+/i, "")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {data.session.label} / {semesterLabel(data.semester)} / Version{" "}
+              {data.session.label} / {semesterLabel(data.semester, data.institution)} / Version{" "}
               {data.version}
             </p>
           </div>

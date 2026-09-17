@@ -254,6 +254,7 @@ export default function Page() {
           departments: [
             {
               name: imp.department.name,
+              institution: imp.department.institution,
               courses: imp.department.courses.map((course) => ({
                 code: course.code,
                 title: course.title,

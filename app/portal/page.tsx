@@ -33,6 +33,7 @@ export default async function PortalPage() {
         id: resultSet.id,
         level: resultSet.level,
         semester: resultSet.semester,
+        institution: resultSet.institution,
         version: resultSet.version,
         status: resultSet.status,
         source: resultSet.source,
