@@ -291,11 +291,19 @@ export default function Page() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(importPayload),
         });
-        const responseBody = (await response.json()) as {
+        const rawText = await response.text();
+        let responseBody: {
           error?: string;
           details?: { path: string; message: string }[];
           imports?: { id: number }[];
         };
+        try {
+          responseBody = JSON.parse(rawText);
+        } catch (err) {
+          console.error("API response was not JSON:", rawText);
+          throw new Error(`The server returned an unexpected HTML response (Status: ${response.status}). Please check the terminal logs.`);
+        }
+
         if (!response.ok) {
           const detail = responseBody.details?.[0];
           const validationError = formatSaveValidationError(

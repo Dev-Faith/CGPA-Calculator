@@ -90,7 +90,7 @@ async function createResultPdf(
 
   // Load logo and QR code in parallel
   const [logoDataUrl, qrResult] = await Promise.allSettled([
-    loadLogoDataUrl(),
+    loadLogoDataUrl(institution.key),
     QRCode.toDataURL(verificationUrl, {
       errorCorrectionLevel: "L",
       margin: 1,

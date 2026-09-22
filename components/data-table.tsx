@@ -80,6 +80,7 @@ export type DepartmentData = {
   session?: string;
   semester?: string;
   level?: string;
+  institution?: string;
   courses: { code: string; unit: number }[];
   students: StudentResult[];
 };
@@ -271,7 +272,7 @@ export function DataTable({
       const worksheet = workbook.addWorksheet("Broadsheet");
 
       // --- Logo ---
-      const logoDataUrl = await loadLogoDataUrl();
+      const logoDataUrl = await loadLogoDataUrl(activeDepartment.institution);
       if (logoDataUrl) {
         // Convert data URL to ArrayBuffer
         const base64 = logoDataUrl.split(',')[1];

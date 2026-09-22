@@ -1,10 +1,11 @@
 /**
- * Loads the ECOTAMS logo from /ecotems-logo.png and returns it as a base64 data URL.
+ * Loads the appropriate logo and returns it as a base64 data URL.
  * Works in both browser (fetch) and can be imported anywhere client-side.
  */
-export async function loadLogoDataUrl(): Promise<string | null> {
+export async function loadLogoDataUrl(institutionKey: string = "ECOTAMS"): Promise<string | null> {
   try {
-    const response = await fetch("/ecotems-logo.png");
+    const filename = institutionKey === "EIT" ? "/eit-logo.png" : "/ecotems-logo.png";
+    const response = await fetch(filename);
     if (!response.ok) return null;
     const blob = await response.blob();
     return await new Promise<string>((resolve, reject) => {

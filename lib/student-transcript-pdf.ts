@@ -56,7 +56,7 @@ async function createTranscriptPdf(
 
   // Load logo and QR code in parallel
   const [logoDataUrl, qrResult] = await Promise.allSettled([
-    loadLogoDataUrl(),
+    loadLogoDataUrl(institutionKey ?? undefined),
     QRCode.toDataURL(verificationUrl, {
       errorCorrectionLevel: "L",
       margin: 0,
@@ -253,6 +253,12 @@ async function createTranscriptPdf(
   const lastAutoTable = (pdf as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable;
   finalY = (lastAutoTable?.finalY ?? finalY) + 15;
 
+  // Ensure there's enough space for the footer and signature, otherwise break page
+  if (finalY > pageHeight - 80) {
+    pdf.addPage();
+    finalY = margin + 10;
+  }
+
   // --- Summary Footer ---
   pdf.setFontSize(12);
   pdf.setFont("helvetica", "bold");
@@ -272,6 +278,12 @@ async function createTranscriptPdf(
   pdf.setFont("helvetica", "normal");
   pdf.text(gpaValue.toString(), margin + 30, finalY);
 
+  // Add a line separator to match comprehensive transcript style (optional, but looks cleaner)
+  finalY += 6;
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setLineWidth(0.5);
+  pdf.line(margin, finalY, margin + 60, finalY);
+
   finalY += 12;
   pdf.setFontSize(10);
   pdf.setFont("helvetica", "bold");
@@ -284,7 +296,7 @@ async function createTranscriptPdf(
   pdf.text(`To verify transcript, visit: ${VERIFICATION_BASE_URL}`, margin, finalY);
 
   // --- Signatures ---
-  const sigY = pageHeight - 40;
+  const sigY = finalY + 25;
   pdf.setDrawColor(0, 0, 0);
   pdf.setLineWidth(0.3);
   pdf.line(margin, sigY, margin + 60, sigY);
@@ -418,7 +430,7 @@ async function createComprehensiveTranscriptPdf(student: ComprehensiveStudentDat
   const validationCode = reference;
 
   const [logoDataUrl, qrResult] = await Promise.allSettled([
-    loadLogoDataUrl(),
+    loadLogoDataUrl(institution.key),
     QRCode.toDataURL(verificationUrl, {
       errorCorrectionLevel: "L",
       margin: 0,
@@ -592,7 +604,7 @@ async function createComprehensiveTranscriptPdf(student: ComprehensiveStudentDat
   pdf.text(`To verify transcript, visit: ${VERIFICATION_BASE_URL}`, margin, finalY);
 
   // --- Signatures ---
-  const sigY = Math.max(finalY + 30, pageHeight - 40);
+  const sigY = finalY + 25;
   pdf.setDrawColor(0, 0, 0);
   pdf.setLineWidth(0.3);
   pdf.line(margin, sigY, margin + 60, sigY);
