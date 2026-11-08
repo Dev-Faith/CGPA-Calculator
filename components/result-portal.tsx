@@ -10,6 +10,7 @@ import {
   FilterIcon,
   SearchIcon,
   SendIcon,
+  Trash2Icon,
   UsersIcon,
   AlertCircleIcon,
 } from "lucide-react";
@@ -178,6 +179,42 @@ export function ResultPortal({
             : "Unable to update result status.",
         );
       }
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  const deleteResultSet = async (resultSet: ResultSetCard) => {
+    const confirmed = window.confirm(
+      `Permanently delete ${resultSet.department.name} · ${resultSet.session.label} · ${semesterLabel(resultSet.semester)} (version ${resultSet.version})?\n\nThis removes all its students' results from the database and cannot be undone. Use Archive to keep a record instead.`,
+    );
+    if (!confirmed) return;
+
+    setPendingId(resultSet.id);
+    toast.loading("Deleting import…", { id: "delete-result" });
+    try {
+      const response = await fetch(`/api/results/${resultSet.id}`, {
+        method: "DELETE",
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(body.error ?? "Unable to delete result import.");
+      }
+      setResultSets((current) =>
+        current.filter((item) => item.id !== resultSet.id),
+      );
+      toast.success("Result import permanently deleted.", {
+        id: "delete-result",
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete result import.",
+        { id: "delete-result" },
+      );
     } finally {
       setPendingId(null);
     }
@@ -444,6 +481,15 @@ export function ResultPortal({
                           <ArchiveIcon className="mr-1.5 size-3.5" /> Archive
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        disabled={pendingId === resultSet.id}
+                        onClick={() => deleteResultSet(resultSet)}
+                      >
+                        <Trash2Icon className="mr-1.5 size-3.5" /> Delete
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>

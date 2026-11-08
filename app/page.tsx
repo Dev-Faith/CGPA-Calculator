@@ -212,6 +212,13 @@ export default function Page() {
         `${semCount} semester${semCount === 1 ? "" : "s"} imported — results are ready for review.`,
         { id: "parse" },
       );
+
+      // Surface non-fatal parser warnings (e.g. unit mismatches) as toasts
+      for (const imp of parsed) {
+        for (const warning of imp.warnings ?? []) {
+          toast.warning(warning, { duration: 10000 });
+        }
+      }
     } catch (error) {
       console.error(error);
       toast.error(

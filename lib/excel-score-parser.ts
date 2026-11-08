@@ -6,11 +6,63 @@ import { detectInstitutionFromSheet } from "@/lib/institution";
 
 type SheetCell = string | number | boolean | Date | null | undefined;
 
+const COURSE_CODE_RE = /^[A-Z]{2,5}\s*\d{3}[A-Z]?$/i;
+
+/** Normalises course codes so "ACC111", "acc 111" and "ACC  111" all match. */
+function normalizeCourseCode(raw: string): string {
+  const compact = raw.toUpperCase().replace(/\s+/g, "");
+  const m = compact.match(/^([A-Z]{2,5})(\d{3}[A-Z]?)$/);
+  return m ? `${m[1]} ${m[2]}` : raw.toUpperCase().trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Normalises matric numbers to the `ECT25/PAD/010` format, so entries like
+ * `ECT25/PAD010` (missing slash) are treated the same as the rest.
+ */
+function normalizeMatricNo(raw: string): string {
+  const m = raw.match(/^([A-Z0-9]+)\s*\/\s*([A-Z]{2,5})\s*\/?\s*(\d+)$/);
+  return m ? `${m[1]}/${m[2]}/${m[3]}` : raw;
+}
+
+/**
+ * Tries to read a course-legend row (code, title, unit) from any layout:
+ * finds the first cell that looks like a course code (within `maxCol`), then
+ * takes the next non-numeric cell as the title and the next numeric as the unit.
+ */
+function parseLegendRow(
+  row: SheetCell[],
+  maxCol: number,
+): { code: string; title: string; unit?: number } | null {
+  const last = Math.min(maxCol, row.length - 1);
+  for (let c = 0; c <= last; c++) {
+    const cell = String(row[c] ?? "").trim();
+    if (!COURSE_CODE_RE.test(cell)) continue;
+
+    let title = "";
+    let unit: number | undefined;
+    for (let k = c + 1; k < row.length; k++) {
+      const v = String(row[k] ?? "").trim();
+      if (!v) continue;
+      const isNum = !isNaN(Number(v));
+      if (!title && !isNum) {
+        title = v.replace(/\s+/g, " ");
+      } else if (title && isNum) {
+        unit = Number(v);
+        break;
+      }
+    }
+    return { code: normalizeCourseCode(cell), title, unit };
+  }
+  return null;
+}
+
 /**
  * Represents a single semester's parsed result data, including the academic
  * context extracted from the sheet tab.
  */
 export interface SemesterImport {
+  /** Non-fatal issues found while parsing (e.g. unit mismatches). */
+  warnings?: string[];
   /** Academic session label, e.g. "2021/2022" */
   sessionLabel: string;
   /** Programme semester number 1–4 */
@@ -66,6 +118,12 @@ export async function processScoreSheetFile(
   const workbook = XLSX.read(fileBuffer, { type: "array" });
 
   const results: SemesterImport[] = [];
+  let previousSheet: {
+    departmentName: string;
+    sessionLabel: string;
+    semesterText: string;
+    levelText: string;
+  } | null = null;
 
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
@@ -120,7 +178,7 @@ export async function processScoreSheetFile(
         // ND/NID level may be in a separate cell on the same row
         for (const cell of row) {
           const s = String(cell ?? "").trim();
-          const ndMatch = s.match(/N?ID?\s*(\d)/i) || s.match(/ND\s*(\d)/i);
+          const ndMatch = s.match(/\bN?I?D\s*([12])\b/i);
           if (ndMatch) {
             levelText = `ND${ndMatch[1]}`;
           }
@@ -152,8 +210,6 @@ export async function processScoreSheetFile(
     // Skip sheets that don't look like result data
     if (headerRowIndex === -1 || matricColIndex === -1) continue;
     if (unitRowIndex === -1) unitRowIndex = headerRowIndex + 1;
-
-    const semesterNumber = parseSemesterNumber(semesterText, levelText);
 
     // ── Map course columns ────────────────────────────────────────────
     const unitRow = rows[unitRowIndex] || [];
@@ -201,9 +257,8 @@ export async function processScoreSheetFile(
     const students: StudentResult[] = [];
     // Map of COURSE CODE → title extracted from the legend table below student rows
     const courseTitleMap: Record<string, string> = {};
+    const legendUnitMap: Record<string, number> = {};
     let inCourseTitleSection = false;
-    let legendCodeCol = -1;
-    let legendTitleCol = -1;
 
     for (let i = unitRowIndex + 1; i < rows.length; i++) {
       const row = rows[i];
@@ -211,22 +266,10 @@ export async function processScoreSheetFile(
 
       // ── While inside the course-title legend section ──────────────────
       if (inCourseTitleSection) {
-        const code = legendCodeCol !== -1
-          ? String(row[legendCodeCol] ?? "").trim().toUpperCase()
-          : "";
-        // Only process rows that look like a course code (e.g. "CHT 111")
-        if (code && /^[A-Z]{2,5}\s+\d{3}/i.test(code)) {
-          let title = legendTitleCol !== -1
-            ? String(row[legendTitleCol] ?? "").trim()
-            : "";
-          // If the designated title column is empty, search adjacent columns
-          if (!title) {
-            for (let c = legendCodeCol + 1; c < row.length; c++) {
-              const cell = String(row[c] ?? "").trim();
-              if (cell) { title = cell; break; }
-            }
-          }
-          if (title) courseTitleMap[code] = title;
+        const legend = parseLegendRow(row, row.length);
+        if (legend) {
+          if (legend.title) courseTitleMap[legend.code] = legend.title;
+          if (legend.unit !== undefined) legendUnitMap[legend.code] = legend.unit;
         }
         continue;
       }
@@ -236,9 +279,9 @@ export async function processScoreSheetFile(
 
       const nameVal =
         nameColIndex !== -1 ? String(row[nameColIndex] ?? "").trim() : "";
-      const matricVal = String(row[matricColIndex] ?? "")
-        .toUpperCase()
-        .trim();
+      const matricVal = normalizeMatricNo(
+        String(row[matricColIndex] ?? "").toUpperCase().trim(),
+      );
 
       // Stop at footer / summary rows
       if (nameVal.toUpperCase().includes("PREPARED BY")) break;
@@ -251,37 +294,25 @@ export async function processScoreSheetFile(
         break;
       }
 
-      // Detect the "Course Code | Course Title" legend table header row.
-      // Instead of breaking we switch into title-extraction mode so we can
-      // harvest course titles from the rows that follow.
+      // Legend table with an explicit "Course Code | Course Title" header row.
       if (
         /^course\s*(code|title)/i.test(nameVal) ||
         /^course\s*(code|title)/i.test(matricVal)
       ) {
         inCourseTitleSection = true;
-        // Identify which columns hold the code and title
-        for (let c = 0; c < row.length; c++) {
-          const cell = String(row[c] ?? "").trim();
-          if (/^course\s*code/i.test(cell)) legendCodeCol = c;
-          else if (/^course\s*title/i.test(cell)) legendTitleCol = c;
-        }
-        // Fallback: use the NAME column as code column
-        if (legendCodeCol === -1)
-          legendCodeCol = nameColIndex !== -1 ? nameColIndex : 0;
         continue;
       }
 
-      // A course-code pattern in the matric column (e.g. "CHT 252") means we
-      // have drifted into the legend table without a header — switch modes.
-      if (!matricVal.includes("/") && /^[A-Z]{2,5}\s+\d{3}$/i.test(matricVal)) {
-        inCourseTitleSection = true;
-        legendCodeCol = nameColIndex !== -1 ? nameColIndex : 0;
-        legendTitleCol = matricColIndex;
-        // Re-process this row as the first legend data row
-        const code = String(row[legendCodeCol] ?? "").trim().toUpperCase();
-        const title = String(row[legendTitleCol] ?? "").trim();
-        if (code && title) courseTitleMap[code] = title;
-        continue;
+      // Headerless legend: a course code sitting in any of the leading columns
+      // (S/N, NAME or MATRIC) of a row whose matric cell isn't a matric number.
+      if (!matricVal.includes("/")) {
+        const legend = parseLegendRow(row, matricColIndex + 1);
+        if (legend) {
+          inCourseTitleSection = true;
+          if (legend.title) courseTitleMap[legend.code] = legend.title;
+          if (legend.unit !== undefined) legendUnitMap[legend.code] = legend.unit;
+          continue;
+        }
       }
 
       let tgp = 0;
@@ -364,6 +395,53 @@ export async function processScoreSheetFile(
       );
     }
 
+    // A workbook is either one department across several semesters, or several
+    // departments in the same semester. Tabs that omit the session/semester/
+    // level inherit it from the previous tab: the session always, and the
+    // semester + level when the department changes (same-semester workbook).
+    if (previousSheet) {
+      if (!sessionLabel) sessionLabel = previousSheet.sessionLabel;
+      const sameDepartment =
+        previousSheet.departmentName.trim().toUpperCase() ===
+        departmentName.trim().toUpperCase();
+      if (!sameDepartment) {
+        if (!semesterText) semesterText = previousSheet.semesterText;
+        if (!levelText) levelText = previousSheet.levelText;
+      }
+    }
+
+    // If the sheet has no ND level label, infer it from the matric prefix
+    // (e.g. "ECT25/..." → 2025 intake) and the session start year.
+    let inferredLevel = false;
+    if (!levelText && sessionLabel) {
+      const entryMatch = students[0].matricNo.match(/^[A-Z]{2,4}(\d{2})\//);
+      const sessionStart = Number(sessionLabel.split("/")[0]);
+      if (entryMatch && Number.isFinite(sessionStart)) {
+        const level = sessionStart - (2000 + Number(entryMatch[1])) + 1;
+        levelText = `ND${Math.min(Math.max(level, 1), 2)}`;
+        inferredLevel = true;
+      }
+    }
+    const semesterNumber = parseSemesterNumber(semesterText, levelText);
+    previousSheet = { departmentName, sessionLabel, semesterText, levelText };
+
+    // Flag differences between header units and the course legend units
+    const warnings: string[] = [];
+    if (inferredLevel) {
+      warnings.push(
+        `${sheetName}: no ND level found in the sheet; assumed ${levelText} from the matric number and session.`,
+      );
+    }
+    for (const c of courses) {
+      const legendUnit = legendUnitMap[normalizeCourseCode(c.code)];
+      if (legendUnit !== undefined && legendUnit !== c.unit) {
+        warnings.push(
+          `${c.code}: unit is ${c.unit} in the score header but ${legendUnit} in the course list (using ${c.unit}).`,
+        );
+      }
+    }
+    if (warnings.length) console.warn(`[${sheetName}]`, warnings);
+
     results.push({
       sessionLabel,
       semester: semesterNumber,
@@ -376,10 +454,11 @@ export async function processScoreSheetFile(
         courses: courses.map((c) => ({
           code: c.code,
           unit: c.unit,
-          title: courseTitleMap[c.code] || undefined,
+          title: courseTitleMap[normalizeCourseCode(c.code)] || undefined,
         })),
         students,
       },
+      warnings,
     });
   }
 

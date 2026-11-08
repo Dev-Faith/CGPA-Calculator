@@ -145,26 +145,43 @@ export async function PATCH(
   }
 }
 
-// This endpoint deliberately archives rather than destroys records. It keeps
-// the import history intact if a result is accidentally removed from use.
+// Permanently deletes a result set. Courses, enrollments and grades are
+// removed via cascade; students left with no enrollments are removed too.
+// Use PATCH { action: "archive" } to keep the history instead.
 export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   if (!(await isAdminSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return PATCH(
-    new NextRequest(request.url, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: request.headers.get("cookie") ?? "",
+  const resultSetId = parseId((await params).id);
+  if (!resultSetId) {
+    return NextResponse.json({ error: "Invalid result set ID." }, { status: 400 });
+  }
+
+  try {
+    const deleted = await db.$transaction(
+      async (tx) => {
+        const existing = await tx.resultSet.findUnique({
+          where: { id: resultSetId },
+          select: { id: true },
+        });
+        if (!existing) return false;
+        await tx.resultSet.delete({ where: { id: resultSetId } });
+        await tx.student.deleteMany({ where: { enrollments: { none: {} } } });
+        return true;
       },
-      body: JSON.stringify({ action: "archive" }),
-    }),
-    context
-  );
+      { maxWait: 20_000, timeout: 120_000 }
+    );
+    if (!deleted) {
+      return NextResponse.json({ error: "Result set not found." }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, id: resultSetId });
+  } catch (error) {
+    console.error("[DELETE /api/results/[id]]", error);
+    return NextResponse.json({ error: "Failed to delete result set." }, { status: 500 });
+  }
 }
 
 export const runtime = "nodejs";

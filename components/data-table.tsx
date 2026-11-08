@@ -163,6 +163,31 @@ export function DataTable({
     return departments?.[activeDeptIndex] || departments?.[0];
   }, [departments, activeDeptIndex]);
 
+  // A workbook holds either one department over several semesters, or several
+  // departments in the same semester. Label the selector (and each option)
+  // by whichever dimension actually varies, so entries are never mixed.
+  const hasValue = (value?: string) => !!value && value !== "N/A";
+  const departmentsVary =
+    new Set(departments.map((d) => d.name.trim().toUpperCase())).size > 1;
+  const semestersVary =
+    new Set(departments.map((d) => `${d.semester}|${d.session}`)).size > 1;
+  const selectorLabel =
+    departmentsVary && !semestersVary
+      ? "Department"
+      : departmentsVary
+        ? "Department / Semester"
+        : "Semester";
+  const optionLabel = (dept?: DepartmentData) => {
+    if (!dept) return "";
+    const semesterPart = hasValue(dept.semester)
+      ? `${dept.semester}${hasValue(dept.session) ? ` · ${dept.session}` : ""}`
+      : "";
+    const namePart = formatDepartmentDisplayName(dept.name);
+    if (!departmentsVary) return semesterPart || namePart;
+    if (!semestersVary || !semesterPart) return namePart;
+    return `${namePart} — ${semesterPart}`;
+  };
+
   const [activeTab, setActiveTab] = React.useState("all-students");
   const [selectedRows, setSelectedRows] = React.useState<Set<string>>(
     new Set(),
@@ -531,25 +556,21 @@ export function DataTable({
           </div>
           {departments.length > 1 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground">Semester:</span>
+              <span className="text-xs font-semibold text-muted-foreground">{selectorLabel}:</span>
               <Select
                 value={String(activeDeptIndex)}
                 onValueChange={(val) => val && handleDepartmentChange(val)}
               >
                 <SelectTrigger className="min-w-[220px] max-w-[340px] h-8 text-xs bg-background font-medium truncate">
-                  <SelectValue placeholder="Select Semester">
-                    {activeDepartment?.semester && activeDepartment.semester !== "N/A"
-                      ? `${activeDepartment.semester}${activeDepartment.session && activeDepartment.session !== "N/A" ? ` · ${activeDepartment.session}` : ""}`
-                      : formatDepartmentDisplayName(activeDepartment?.name)}
+                  <SelectValue placeholder={`Select ${selectorLabel}`}>
+                    {optionLabel(activeDepartment)}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
                     {departments.map((dept, idx) => (
                       <SelectItem key={idx} value={String(idx)}>
-                        {dept.semester && dept.semester !== "N/A"
-                          ? `${dept.semester}${dept.session && dept.session !== "N/A" ? ` · ${dept.session}` : ""}`
-                          : formatDepartmentDisplayName(dept.name)}
+                        {optionLabel(dept)}
                       </SelectItem>
                     ))}
                   </SelectGroup>
