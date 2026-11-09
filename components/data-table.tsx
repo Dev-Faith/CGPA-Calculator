@@ -283,21 +283,18 @@ export function DataTable({
     setVisibleColumns((prev) => ({ ...prev, [colId]: !prev[colId] }));
   };
 
-  const handleDownload = async () => {
-    if (!activeDepartment) return;
-    toast.loading("Generating broadsheet...", { id: "download" });
-
-    try {
-      const activeCourses = activeDepartment.courses.filter(
-        (c) => visibleColumns[c.code],
-      );
-
-      // Create Workbook and Worksheet
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Broadsheet");
+  const addBroadsheetSheet = async (
+    workbook: ExcelJS.Workbook,
+    dept: DepartmentData,
+    visible: Record<string, boolean>,
+    rows: StudentResult[],
+    sheetName: string,
+  ) => {
+    const activeCourses = dept.courses.filter((c) => visible[c.code]);
+    const worksheet = workbook.addWorksheet(sheetName);
 
       // --- Logo ---
-      const logoDataUrl = await loadLogoDataUrl(activeDepartment.institution);
+      const logoDataUrl = await loadLogoDataUrl(dept.institution);
       if (logoDataUrl) {
         // Convert data URL to ArrayBuffer
         const base64 = logoDataUrl.split(',')[1];
@@ -327,14 +324,14 @@ export function DataTable({
       // 3. Department Row
       worksheet.mergeCells('C3:M3');
       const deptRow = worksheet.getCell('C3');
-      const upperDeptName = activeDepartment.name.toUpperCase();
+      const upperDeptName = dept.name.toUpperCase();
       deptRow.value = upperDeptName.startsWith("DEPARTMENT") ? upperDeptName : `DEPARTMENT OF ${upperDeptName}`;
       deptRow.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
 
       // 4. Session, Semester & Level
-      const sessionStr = activeDepartment.session ? `SESSION: ${activeDepartment.session}` : "SESSION: N/A";
-      const semesterStr = activeDepartment.semester ? `SEMESTER: ${activeDepartment.semester}` : "SEMESTER: N/A";
-      const levelStr = activeDepartment.level ? `LEVEL: ${activeDepartment.level}` : "LEVEL: N/A";
+      const sessionStr = dept.session ? `SESSION: ${dept.session}` : "SESSION: N/A";
+      const semesterStr = dept.semester ? `SEMESTER: ${dept.semester}` : "SEMESTER: N/A";
+      const levelStr = dept.level ? `LEVEL: ${dept.level}` : "LEVEL: N/A";
 
       worksheet.mergeCells('C4:M4');
       worksheet.getCell('C4').value = sessionStr;
@@ -353,26 +350,26 @@ export function DataTable({
 
       // 5. Headers (Row 7)
       const headers = [];
-      if (visibleColumns.sn) headers.push("S/N");
-      if (visibleColumns.name) headers.push("NAME");
-      if (visibleColumns.matricNo) headers.push("MATRIC NO");
+      if (visible.sn) headers.push("S/N");
+      if (visible.name) headers.push("NAME");
+      if (visible.matricNo) headers.push("MATRIC NO");
       activeCourses.forEach((c) => headers.push(c.code));
-      if (visibleColumns.tgp) headers.push("TGP");
-      if (visibleColumns.gpa) headers.push("GPA");
-      if (visibleColumns.remark) headers.push("REMARK");
+      if (visible.tgp) headers.push("TGP");
+      if (visible.gpa) headers.push("GPA");
+      if (visible.remark) headers.push("REMARK");
 
       const headerRow = worksheet.getRow(headerRowIndex);
       headerRow.values = headers;
 
       // 6. SubHeaders (Row 8)
       const subHeaders = [];
-      if (visibleColumns.sn) subHeaders.push("");
-      if (visibleColumns.name) subHeaders.push("");
-      if (visibleColumns.matricNo) subHeaders.push("COURSE UNIT");
+      if (visible.sn) subHeaders.push("");
+      if (visible.name) subHeaders.push("");
+      if (visible.matricNo) subHeaders.push("COURSE UNIT");
       activeCourses.forEach((c) => subHeaders.push(String(c.unit)));
-      if (visibleColumns.tgp) subHeaders.push("");
-      if (visibleColumns.gpa) subHeaders.push("");
-      if (visibleColumns.remark) subHeaders.push("");
+      if (visible.tgp) subHeaders.push("");
+      if (visible.gpa) subHeaders.push("");
+      if (visible.remark) subHeaders.push("");
 
       const subHeaderRow = worksheet.getRow(headerRowIndex + 1);
       subHeaderRow.values = subHeaders;
@@ -401,15 +398,15 @@ export function DataTable({
       ];
 
       // 8. Add Data (Starting Row 9)
-      filteredData.forEach((student, index) => {
+      rows.forEach((student, index) => {
         const rowData = [];
-        if (visibleColumns.sn) rowData.push(index + 1);
-        if (visibleColumns.name) rowData.push(student.name);
-        if (visibleColumns.matricNo) rowData.push(student.matricNo);
+        if (visible.sn) rowData.push(index + 1);
+        if (visible.name) rowData.push(student.name);
+        if (visible.matricNo) rowData.push(student.matricNo);
         activeCourses.forEach((c) => rowData.push(student.grades?.[c.code] || "-"));
-        if (visibleColumns.tgp) rowData.push(student.tgp);
-        if (visibleColumns.gpa) rowData.push(typeof student.gpa === "number" ? student.gpa.toFixed(2) : student.gpa);
-        if (visibleColumns.remark) rowData.push(student.remark);
+        if (visible.tgp) rowData.push(student.tgp);
+        if (visible.gpa) rowData.push(typeof student.gpa === "number" ? student.gpa.toFixed(2) : student.gpa);
+        if (visible.remark) rowData.push(student.remark);
 
         const dataRow = worksheet.addRow(rowData);
         dataRow.eachCell((cell) => {
@@ -435,6 +432,15 @@ export function DataTable({
         });
         column.width = maxLength < 10 ? 10 : maxLength + 2;
       });
+  };
+
+  const handleDownload = async () => {
+    if (!activeDepartment) return;
+    toast.loading("Generating broadsheet...", { id: "download" });
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      await addBroadsheetSheet(workbook, activeDepartment, visibleColumns, filteredData, "Broadsheet");
 
       // 10. Download
       const buffer = await workbook.xlsx.writeBuffer();
@@ -444,6 +450,53 @@ export function DataTable({
       toast.success("Broadsheet downloaded successfully", { id: "download" });
     } catch {
       toast.error("Failed to generate download.", { id: "download" });
+    }
+  };
+
+  // Master workbook: every imported sheet (department/semester) as its own tab.
+  const handleDownloadAll = async () => {
+    if (!departments.length) return;
+    toast.loading("Generating master workbook...", { id: "download-all" });
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const usedNames = new Set<string>();
+
+      for (const dept of departments) {
+        const base =
+          optionLabel(dept)
+            .replace(/^DEPARTMENT OF\s+/i, "")
+            .replace(/[\\/*?:[\]]/g, "")
+            .trim()
+            .slice(0, 28) || "Sheet";
+        let sheetName = base;
+        for (let n = 2; usedNames.has(sheetName.toLowerCase()); n++) {
+          sheetName = `${base.slice(0, 28 - String(n).length - 1)} ${n}`;
+        }
+        usedNames.add(sheetName.toLowerCase());
+
+        await addBroadsheetSheet(
+          workbook,
+          dept,
+          buildVisibleColumns(dept),
+          dept.students,
+          sheetName,
+        );
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const session = departments.find((d) => hasValue(d.session))?.session;
+      saveAs(
+        blob,
+        `Master_Broadsheet${session ? `_${session.replace(/\//g, "-")}` : ""}.xlsx`,
+      );
+      toast.success(
+        `Master workbook downloaded (${departments.length} tab${departments.length === 1 ? "" : "s"}).`,
+        { id: "download-all" },
+      );
+    } catch {
+      toast.error("Failed to generate master workbook.", { id: "download-all" });
     }
   };
 
@@ -704,9 +757,21 @@ export function DataTable({
             <span className="hidden lg:inline">Download Dept Excel</span>
             <span className="inline lg:hidden">Export</span>
           </Button>
+
+          {departments.length > 1 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50 shadow-sm"
+              onClick={handleDownloadAll}
+            >
+              <DownloadIcon className="size-4" />
+              <span className="hidden lg:inline">Download Master Excel</span>
+              <span className="inline lg:hidden">Master</span>
+            </Button>
+          )}
         </div>
       </div>
-
       {pdfJob && (
         <div className="px-4 lg:px-6">
           <div className="flex items-center gap-3 rounded-lg border border-dashed bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
