@@ -106,7 +106,15 @@ async function createTranscriptPdf(
   // Transcript title
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(14);
-  pdf.text(`${student.name.toUpperCase()} TRANSCRIPT`, pageWidth / 2, headerBottom + 8, { align: "center" });
+  const transcriptTitle = `${student.name.toUpperCase()} TRANSCRIPT`;
+  const titleMaxWidth = pageWidth - margin * 2;
+  let titleFontSize = 14;
+  while (titleFontSize > 9 && pdf.getTextWidth(transcriptTitle) > titleMaxWidth) {
+    titleFontSize -= 0.5;
+    pdf.setFontSize(titleFontSize);
+  }
+  pdf.text(transcriptTitle, pageWidth / 2, headerBottom + 8, { align: "center" });
+  pdf.setFontSize(14);
   
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(11);
@@ -479,12 +487,26 @@ async function createComprehensiveTranscriptPdf(student: ComprehensiveStudentDat
   pdf.setFontSize(11);
   pdf.text(`Student Name: `, pageWidth / 2 - 20, headerBottom + 16, { align: "right" });
   pdf.setFont("helvetica", "bold");
-  pdf.text(student.name.toUpperCase(), pageWidth / 2 - 18, headerBottom + 16, { align: "left" });
-  
+  // Keep the name clear of the QR code: shrink the font first, then wrap.
+  const nameX = pageWidth / 2 - 18;
+  const nameMaxWidth = pageWidth - margin - 25 - 5 - 4 - nameX;
+  const upperName = student.name.toUpperCase();
+  let nameFontSize = 11;
+  pdf.setFontSize(nameFontSize);
+  while (nameFontSize > 8 && pdf.getTextWidth(upperName) > nameMaxWidth) {
+    nameFontSize -= 0.5;
+    pdf.setFontSize(nameFontSize);
+  }
+  const nameLines: string[] = pdf.splitTextToSize(upperName, nameMaxWidth);
+  pdf.text(nameLines, nameX, headerBottom + 16, { align: "left" });
+  // Push the matric line down if the name wrapped onto extra lines
+  const nameExtra = (nameLines.length - 1) * 4.5;
+  pdf.setFontSize(11);
+
   pdf.setFont("helvetica", "normal");
-  pdf.text(`Matric No: `, pageWidth / 2 - 20, headerBottom + 22, { align: "right" });
+  pdf.text(`Matric No: `, pageWidth / 2 - 20, headerBottom + 22 + nameExtra, { align: "right" });
   pdf.setFont("helvetica", "bold");
-  pdf.text(student.matricNo, pageWidth / 2 - 18, headerBottom + 22, { align: "left" });
+  pdf.text(student.matricNo, pageWidth / 2 - 18, headerBottom + 22 + nameExtra, { align: "left" });
 
   if (qrCodeDataUrl) {
     const qrSize = 25;
