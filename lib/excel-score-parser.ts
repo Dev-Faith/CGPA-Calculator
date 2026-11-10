@@ -274,6 +274,27 @@ export async function processScoreSheetFile(
         continue;
       }
 
+      // ── Course legend detection (must run BEFORE the matric check) ────
+      // In many sheets the legend sits in the S/N / NAME columns, leaving the
+      // MATRIC NO cell empty, so these rows would otherwise be skipped.
+      const leadCells = row
+        .slice(0, matricColIndex + 2)
+        .map((c) => String(c ?? "").trim());
+      if (leadCells.some((c) => /^course\s*(code|title)/i.test(c))) {
+        inCourseTitleSection = true;
+        continue;
+      }
+      const rawMatric = String(row[matricColIndex] ?? "").trim();
+      if (!rawMatric.includes("/")) {
+        const legend = parseLegendRow(row, matricColIndex + 1);
+        if (legend) {
+          inCourseTitleSection = true;
+          if (legend.title) courseTitleMap[legend.code] = legend.title;
+          if (legend.unit !== undefined) legendUnitMap[legend.code] = legend.unit;
+          continue;
+        }
+      }
+
       // ── Normal student-row processing ─────────────────────────────────
       if (!row[matricColIndex]) continue;
 
